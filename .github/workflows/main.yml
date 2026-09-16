@@ -1,22 +1,35 @@
-
-
-name: Any branch compilation.
+name: Any branch compilation
 
 on:
+  # Triggers automatically on code push
+  push:
+    branches:
+      - main
+      - master
+      - 'feature/**' # Optional: automatically builds feature branches
+    paths-ignore:
+      - '**.md'      # Ignores triggers when updating documentation
+
+  # Retains the manual "Run workflow" button in the GitHub UI
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to build'
+        required: false
+        default: 'main'
 
 jobs:
   build:
-
     runs-on: ubuntu-22.04
 
     steps:
     - name: Clone repository
       uses: actions/checkout@v4
       with:
+        ref: ${{ github.event.inputs.branch || github.ref }}
         submodules: recursive
 
-    - name: set up JDK 17
+    - name: Set up JDK 17
       run: |
         sudo apt-get update -q
         sudo apt-get install -y -q openjdk-17-jdk
@@ -109,21 +122,14 @@ jobs:
           gather_jar "kotlinx-serialization-json-jvm-*.jar" "../app/libs/steam/kotlinx-serialization-json.jar"
           gather_jar "kotlinx-serialization-core-jvm-*.jar" "../app/libs/steam/kotlinx-serialization-core.jar"
           gather_jar "kotlinx-io-core-jvm-*.jar"            "../app/libs/steam/kotlinx-io-core.jar"
-          # okio and okhttp are declared as Gradle deps in app/build.gradle;
-          # do NOT copy them here or checkDuplicateClasses will fail.
         fi
-
-        # kotlin-compat.jar is NOT needed: okio:3.16.0 in app/build.gradle
-        # transitively pulls kotlin-stdlib:2.2.0, which already contains SpillingKt.
-        # Do NOT extract SpillingKt here or checkDebugDuplicateClasses will fail.
 
         echo "steam libs:"
         ls -lh ../app/libs/steam/
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    - name: Install NDK
+    - name: Grant permissions & Install NDK
       run: |
+        chmod +x gradlew build-lsfg-android.sh
         SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
         mkdir -p "$SDK_ROOT"
         if [ ! -f "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
@@ -136,37 +142,16 @@ jobs:
         yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "ndk;26.1.10909125" "cmake;3.22.1"
         echo "ANDROID_NDK_HOME=$SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
 
-    - name: Grant execute permission for build script
-      run: chmod +x build-lsfg-android.sh
     - name: Build LSFG native library
       run: ./build-lsfg-android.sh
+
     - name: Build with Gradle
       run: ./gradlew assembleDebug
 
-    - name: Upload standard APK
+    - name: Upload APK Artifacts
       uses: actions/upload-artifact@v4
       with:
-       name: standard-debug
-       path: ./app/build/outputs/apk/standard/debug/app-standard-debug.apk
-
-    - name: Upload ludashi APK
-      uses: actions/upload-artifact@v4
-      with:
-       name: ludashi-debug
-       path: ./app/build/outputs/apk/ludashi/debug/app-ludashi-debug.apk
-
-    - name: Upload pubg APK
-      uses: actions/upload-artifact@v4
-      with:
-       name: pubg-debug
-       path: ./app/build/outputs/apk/pubg/debug/app-pubg-debug.apk
-
-    - name: "Get Short SHA"
-      run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-
-    - name: "Get Version"
-      run: echo "VERSION=$(echo $(cat app/build.gradle | grep versionName | head -1 | cut -d '"' -f 2))" >> $GITHUB_ENV
-
-    - name: "List files"
-      run: |
-        ls -la app/src/main/assets
+        name: winlator-apks
+        path: ./app/build/outputs/apk/**/*.apk
+        retention-days: 7
+        
