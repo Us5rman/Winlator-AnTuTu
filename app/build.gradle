@@ -18,50 +18,48 @@ buildscript {
 
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
 }
-apply plugin: 'kotlin-android'
-apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 tasks.register("downloadImageFS") {
-    def assetDir = new File(project.rootDir, ["app","src","main","assets"].join(File.separator))
+    def assetDir = new File(project.rootDir, ["app", "src", "main", "assets"].join(File.separator))
     File imageFS = new File(assetDir, "imagefs.txz")
     String imageFSSHA256Sum = "https://gitlab.com/winlator3/winlator-extra/-/raw/main/imagefs/imagefs.txz.sha256sum"
     int parts = 4
 
+    outputs.file(imageFS)
+
     doLast {
-        if (!imageFS.exists()) {
-            println("ImageFS was not present, downloading...\n")
-            FileOutputStream outputStream = new FileOutputStream(imageFS)
-            for (int i = 0; i < parts; i++) {
-                File partFile = new File(assetDir, String.format("imagefs.txz.%02d", i))
-                String partURL = String.format("https://gitlab.com/winlator3/winlator-extra/-/raw/main/imagefs/imagefs.txz.%02d", i)
-                new URL(partURL).withInputStream { p ->
-                    partFile.withOutputStream { it << p }
-                    outputStream << partFile.bytes
+        assetDir.mkdirs()
+        boolean needsDownload = !imageFS.exists()
+
+        if (!needsDownload && imageFS.length() > 0) {
+            try {
+                String remoteChecksum = new URL(imageFSSHA256Sum).text.split("\\s+")[0].trim()
+                byte[] data = Files.readAllBytes(imageFS.toPath())
+                byte[] hash = MessageDigest.getInstance("SHA-256").digest(data)
+                String localChecksum = String.format("%064x", new BigInteger(1, hash))
+
+                if (remoteChecksum != localChecksum) {
+                    println("ImageFS checksum mismatch. Redownloading...")
+                    needsDownload = true
                 }
-                partFile.delete()
+            } catch (Exception e) {
+                println("Failed to verify remote checksum, using existing ImageFS.")
             }
-            outputStream.close()
         }
 
-        String remoteChecksum = new URL(imageFSSHA256Sum).text.split("\\s+")[0].trim()
-        byte[] data = Files.readAllBytes(imageFS.toPath())
-        byte[] hash = MessageDigest.getInstance("SHA-256").digest(data)
-        String localChecksum = String.format("%064x", new BigInteger(1, hash))
-
-        if (remoteChecksum != localChecksum) {
-            println("The version of ImageFS present locally is older than remote or hasn't been downloaded properly, redownloading...\n")
-            FileOutputStream outputStream = new FileOutputStream(imageFS)
-            for (int i = 0; i < parts; i++) {
-                File partFile = new File(assetDir, String.format("imagefs.txz.%02d", i))
-                String partURL = String.format("https://gitlab.com/winlator3/winlator-extra/-/raw/main/imagefs/imagefs.txz.%02d", i)
-                new URL(partURL).withInputStream { p ->
-                    partFile.withOutputStream { it << p }
-                    outputStream << partFile.bytes
+        if (needsDownload) {
+            println("Downloading ImageFS assets...")
+            imageFS.withOutputStream { outputStream ->
+                for (int i = 0; i < parts; i++) {
+                    String partURL = String.format("https://gitlab.com/winlator3/winlator-extra/-/raw/main/imagefs/imagefs.txz.%02d", i)
+                    new URL(partURL).withInputStream { input ->
+                        outputStream << input
+                    }
                 }
-                partFile.delete()
             }
-            outputStream.close()
         }
     }
 }
@@ -75,6 +73,7 @@ android {
     buildToolsVersion "35.0.0"
 
     defaultConfig {
+        applicationId "com.antutu.ABenchMark"
         minSdkVersion 26
         targetSdkVersion 28
         versionCode 1
@@ -112,7 +111,7 @@ android {
         }
     }
 
-    flavorDimensions "version"
+    flavorDimensions = ["version"]
     productFlavors {
         standard {
             dimension "version"
