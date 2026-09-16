@@ -35,6 +35,7 @@ import com.winlator.star.MainActivity
 import com.winlator.star.R
 import com.winlator.star.contentdialog.DXVKConfigDialog
 import com.winlator.star.contentdialog.WineD3DConfigDialog
+import com.winlator.star.contentdialog.GraphicsDriverSettingsDialog
 import com.winlator.star.contents.AdrenotoolsManager
 import com.winlator.star.contents.ContentsManager
 import com.winlator.star.core.AppUtils
@@ -74,7 +75,6 @@ fun ContainerDetailScreen(
     var showVegasDownloadSheet   by remember { mutableStateOf(false) }
     var showVkd3dDownloadSheet   by remember { mutableStateOf(false) }
 
-    // AndroidView references for custom views
     val envVarsViewRef      = remember { mutableStateOf<EnvVarsView?>(null)      }
     val cpuListViewRef      = remember { mutableStateOf<CPUListView?>(null)      }
     val cpuListWoW64Ref     = remember { mutableStateOf<CPUListView?>(null)      }
@@ -88,8 +88,7 @@ fun ContainerDetailScreen(
         stringResource(R.string.advanced),
         stringResource(R.string.xr)
     )
-
-    Scaffold(
+        Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -119,7 +118,6 @@ fun ContainerDetailScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ── Top-level fields ───────────────────────────────────────────────
             TopLevelFields(
                 viewModel = viewModel,
                 onShowGfxConfig = { showGraphicsDriverConfig = true },
@@ -129,7 +127,6 @@ fun ContainerDetailScreen(
                 onShowWineDownloadSheet = { showWineDownloadSheet = true },
             )
 
-            // ── Tabs ───────────────────────────────────────────────────────────
             ScrollableTabRow(
                 selectedTabIndex = viewModel.selectedTab,
                 containerColor = MaterialTheme.colorScheme.surface,
@@ -145,7 +142,6 @@ fun ContainerDetailScreen(
                 }
             }
 
-            // ── Tab content ────────────────────────────────────────────────────
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
                 when (viewModel.selectedTab) {
                     0 -> WineConfigTab(viewModel, colorPickerViewRef)
@@ -163,7 +159,7 @@ fun ContainerDetailScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(80.dp)) // room for FAB
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 
@@ -171,15 +167,14 @@ fun ContainerDetailScreen(
         GraphicsDriverSettingsDialog(
             graphicsDriver = StringUtils.parseIdentifier(viewModel.selectedGraphicsDriver),
             initialConfig = viewModel.graphicsDriverConfig,
-            onConfirm = { newConfig -> 
+            onConfirm = { newConfig: String -> 
                 viewModel.graphicsDriverConfig = newConfig
                 showGraphicsDriverConfig = false 
             },
             onDismiss = { showGraphicsDriverConfig = false }
         )
     }
-    
-    val isVegasWrapper = StringUtils.parseIdentifier(viewModel.selectedDXWrapper ?: "").contains("vegas")
+        val isVegasWrapper = StringUtils.parseIdentifier(viewModel.selectedDXWrapper ?: "").contains("vegas")
     if (showDxvkConfig) {
         DxvkConfigDialog(
             isArm64EC = viewModel.isArm64EC,
@@ -206,7 +201,6 @@ fun ContainerDetailScreen(
         )
     }
 
-    // ── Content download sheets ────────────────────────────────────────────
     if (showWineDownloadSheet) {
         ContentDownloadSheet(
             contentTypes = listOf(
@@ -252,8 +246,6 @@ fun ContainerDetailScreen(
         )
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun TopLevelFields(
     viewModel: ContainerDetailViewModel,
@@ -266,8 +258,6 @@ private fun TopLevelFields(
     val context = LocalContext.current
 
     Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-
-        // Name
         OutlinedTextField(
             value = viewModel.containerName,
             onValueChange = { viewModel.containerName = it },
@@ -276,7 +266,6 @@ private fun TopLevelFields(
         )
         Spacer(Modifier.height(8.dp))
 
-        // Screen Size
         LabeledDropdown(
             label = stringResource(R.string.screen_size),
             options = viewModel.screenSizeEntries,
@@ -301,7 +290,6 @@ private fun TopLevelFields(
             Spacer(Modifier.height(8.dp))
         }
 
-        // Wine Version + download gear
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             LabeledDropdown(
                 label = stringResource(R.string.wine_version),
@@ -323,7 +311,6 @@ private fun TopLevelFields(
         }
         Spacer(Modifier.height(8.dp))
 
-        // Graphics Driver + config button
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             LabeledDropdown(
                 label = stringResource(R.string.graphics_driver),
@@ -338,7 +325,6 @@ private fun TopLevelFields(
         }
         Spacer(Modifier.height(8.dp))
 
-        // DX Wrapper + config button
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 LabeledDropdown(
@@ -363,7 +349,6 @@ private fun TopLevelFields(
         }
         Spacer(Modifier.height(8.dp))
 
-        // LSFG (Lossless Scaling Frame Generation)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(
                 checked = viewModel.lsfgEnabled,
@@ -374,7 +359,6 @@ private fun TopLevelFields(
         }
         Spacer(Modifier.height(8.dp))
 
-        // Audio Driver
         LabeledDropdown(
             label = stringResource(R.string.audio_driver),
             options = viewModel.audioDriverEntries,
@@ -383,7 +367,6 @@ private fun TopLevelFields(
         )
         Spacer(Modifier.height(8.dp))
 
-        // Emulator (arm64ec only)
         if (viewModel.isArm64EC) {
             LabeledDropdown(
                 label = "Emulator",
@@ -395,7 +378,6 @@ private fun TopLevelFields(
             Spacer(Modifier.height(8.dp))
         }
 
-        // MIDI Sound Font
         LabeledDropdown(
             label = stringResource(R.string.midi_sound_font),
             options = viewModel.midiEntries,
@@ -404,7 +386,6 @@ private fun TopLevelFields(
         )
         Spacer(Modifier.height(8.dp))
 
-        // Show FPS + config
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(
                 checked = viewModel.showFPS,
@@ -417,7 +398,6 @@ private fun TopLevelFields(
             }
         }
 
-        // Fullscreen Stretched
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(
                 checked = viewModel.fullscreenStretched,
@@ -427,7 +407,6 @@ private fun TopLevelFields(
             Text(stringResource(R.string.fullscreen_stretched))
         }
 
-        // LC_ALL
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = viewModel.lcAll,
@@ -451,15 +430,12 @@ private fun TopLevelFields(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun WineConfigTab(
     viewModel: ContainerDetailViewModel,
     colorPickerViewRef: MutableState<ColorPickerView?>
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
-        // Desktop section
         SectionBox(title = "Desktop") {
             LabeledDropdown(
                 label = stringResource(R.string.theme),
@@ -474,7 +450,6 @@ private fun WineConfigTab(
                 selectedOption = listOf("Image", "Solid Color").getOrElse(viewModel.desktopBgTypeIndex) { "Image" },
                 onSelect = { opt -> viewModel.desktopBgTypeIndex = listOf("Image", "Solid Color").indexOf(opt).coerceAtLeast(0) }
             )
-            // Color picker (visible when Solid Color selected)
             if (viewModel.desktopBgTypeIndex == WineThemeManager.BackgroundType.COLOR.ordinal) {
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -493,7 +468,6 @@ private fun WineConfigTab(
             }
         }
 
-        // DirectInput section
         SectionBox(title = "DirectInput") {
             LabeledDropdown(
                 label = stringResource(R.string.mouse_warp_override),
@@ -505,7 +479,6 @@ private fun WineConfigTab(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun WinComponentsTab(viewModel: ContainerDetailViewModel) {
     val directxItems by remember {
@@ -549,16 +522,12 @@ private fun WinComponentRow(comp: WinComponentEntry, onSelect: (Int) -> Unit) {
         onSelect = { opt -> onSelect(options.indexOf(opt).coerceAtLeast(0)) }
     )
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun EnvVarsTab(
     viewModel: ContainerDetailViewModel,
     envVarsViewRef: MutableState<EnvVarsView?>
 ) {
     var showAddEnvVar by remember { mutableStateOf(false) }
-    // Flush the legacy EnvVarsView's contents back to the ViewModel before the
-    // tab leaves composition, so a tab switch doesn't drop in-progress edits.
     DisposableEffect(Unit) {
         onDispose {
             envVarsViewRef.value?.let { viewModel.envVarsStr = it.envVars }
@@ -599,7 +568,6 @@ private fun EnvVarsTab(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun DrivesTab(viewModel: ContainerDetailViewModel) {
     val context = LocalContext.current
@@ -689,7 +657,6 @@ private fun DriveRow(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun AdvancedTab(
     viewModel: ContainerDetailViewModel,
@@ -699,8 +666,6 @@ private fun AdvancedTab(
     onShowFexCoreDownloadSheet: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    // Flush legacy CPUListView selections back to the ViewModel before the tab
-    // leaves composition, so a tab switch doesn't drop in-progress edits.
     DisposableEffect(Unit) {
         onDispose {
             cpuListViewRef.value?.let { viewModel.cpuList = it.checkedCPUListAsString }
@@ -710,8 +675,6 @@ private fun AdvancedTab(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
-        // Box64 section
         SectionBox(title = "Box64") {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 LabeledDropdown(
@@ -739,9 +702,7 @@ private fun AdvancedTab(
                 onSelect = { opt -> viewModel.selectedBox64PresetIndex = viewModel.box64PresetEntries.indexOf(opt).coerceAtLeast(0) }
             )
         }
-
-        // FEXCore section (arm64ec only)
-        if (viewModel.isArm64EC) {
+                if (viewModel.isArm64EC) {
             SectionBox(title = "FEXCore") {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     LabeledDropdown(
@@ -771,7 +732,6 @@ private fun AdvancedTab(
             }
         }
 
-        // Game Controller section
         SectionBox(title = stringResource(R.string.game_controller)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(
@@ -810,7 +770,6 @@ private fun AdvancedTab(
             }
         }
 
-        // Startup Selection
         LabeledDropdown(
             label = stringResource(R.string.startup_selection),
             options = viewModel.startupSelectionEntries,
@@ -818,7 +777,6 @@ private fun AdvancedTab(
             onSelect = { opt -> viewModel.selectedStartupSelection = viewModel.startupSelectionEntries.indexOf(opt).coerceAtLeast(0) }
         )
 
-        // Processor Affinity
         SectionBox(title = stringResource(R.string.processor_affinity)) {
             Text(
                 stringResource(R.string.processor_affinity),
@@ -857,12 +815,9 @@ private fun AdvancedTab(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun XRTab(viewModel: ContainerDetailViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
-        // Primary controller
         LabeledDropdown(
             label = stringResource(R.string.primary_controller),
             options = viewModel.primaryControllerEntries,
@@ -870,7 +825,6 @@ private fun XRTab(viewModel: ContainerDetailViewModel) {
             onSelect = { opt -> viewModel.selectedPrimaryController = viewModel.primaryControllerEntries.indexOf(opt).coerceAtLeast(0) }
         )
 
-        // Controller button mappings
         SectionBox(title = "Controller Mapping") {
             viewModel.xrMappingLabels.forEachIndexed { i, label ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -891,9 +845,6 @@ private fun XRTab(viewModel: ContainerDetailViewModel) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared composables
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 internal fun AddEnvVarComposable(
     onConfirm: (name: String, value: String) -> Unit,
@@ -949,8 +900,6 @@ internal fun AddEnvVarComposable(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
     )
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 internal fun SectionBox(
@@ -1055,8 +1004,6 @@ private fun CompactDropdown(
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 internal fun GraphicsDriverConfigDialog(
     graphicsDriver: String,
@@ -1114,8 +1061,6 @@ internal fun GraphicsDriverConfigDialog(
             } catch (_: Exception) {}
             list
         }
-        // isDriverSupported() is a native JNI call — must run on main thread to avoid
-        // concurrent AdrenoTools hook invocations that cause SIGSEGV.
         val wrapperVersions = context.resources
             .getStringArray(R.array.wrapper_graphics_driver_version_entries)
             .let { arr ->
@@ -1248,7 +1193,7 @@ internal fun ExtensionPickerDialog(
             if (extensions.isEmpty()) {
                 Text("No extensions available for this driver.")
             } else {
-                androidx.compose.foundation.lazy.LazyColumn {
+                LazyColumn {
                     items(extensions) { ext ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1278,7 +1223,6 @@ internal fun ExtensionPickerDialog(
     )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 internal fun DxvkConfigDialog(
     isArm64EC: Boolean,
@@ -1315,7 +1259,6 @@ internal fun DxvkConfigDialog(
     }
 
     var selectedVkd3d by remember { mutableStateOf(config.get("vkd3dVersion").ifEmpty { "None" }) }
-
     var selectedDxvk by remember(allDxvkVersions.value) {
         val stored = config.get("version")
         mutableStateOf(allDxvkVersions.value.firstOrNull { it == stored } ?: allDxvkVersions.value.firstOrNull() ?: stored)
@@ -1326,7 +1269,6 @@ internal fun DxvkConfigDialog(
     val framerateEntries  = remember { context.resources.getStringArray(R.array.dxvk_framerate_entries).toList() }
     val featureLevelEntries = remember { DXVKConfigDialog.VKD3D_FEATURE_LEVEL.toList() }
     val ddraEntries       = remember { context.resources.getStringArray(R.array.ddrawrapper_entries).toList() }
-    val videoMemEntries   = remember { context.resources.getStringArray(R.array.dxvk_max_device_memory_entries).toList() }
 
     var selectedFramerate by remember {
         val stored = config.get("framerate")
@@ -1495,7 +1437,6 @@ internal fun WineD3DConfigDialog(
     )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 internal fun FpsCounterConfigDialog(
     initialConfig: String,
@@ -1572,5 +1513,3 @@ internal fun FpsCounterConfigDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } }
     )
 }
-
-
