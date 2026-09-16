@@ -20,6 +20,7 @@ import com.winlator.star.ui.screens.FragmentScreen
 import com.winlator.star.ui.screens.SavesScreen
 import com.winlator.star.ui.screens.ShortcutsScreen
 import com.winlator.star.ui.screens.LsfgSettingsScreen
+import com.winlator.star.ui.screens.ContentsScreen // <-- Make sure your ContentsScreen import is here
 
 @Composable
 fun AppNavGraph(
@@ -31,7 +32,6 @@ fun AppNavGraph(
     val activity = LocalContext.current as FragmentActivity
 
     NavHost(navController = navController, startDestination = startRoute, modifier = modifier) {
-
 
         composable(Screen.Containers.route) {
             ContainersScreen(
@@ -72,6 +72,11 @@ fun AppNavGraph(
 
         composable(Screen.AdrenoTools.route) {
             AdrenoToolsScreen()
+        }
+
+        // --- NEW CONTENTS ROUTE ---
+        composable(Screen.Contents.route) {
+            ContentsScreen()
         }
 
         composable(Screen.FileManager.route) {
