@@ -16,11 +16,9 @@ buildscript {
     }
 }
 
-plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-    id 'org.jetbrains.kotlin.plugin.compose'
-}
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 tasks.register("downloadImageFS") {
     def assetDir = new File(project.rootDir, ["app", "src", "main", "assets"].join(File.separator))
