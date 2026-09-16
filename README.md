@@ -9,7 +9,7 @@
 **Information:**
 - **Package:** `com.antutu.ABenchMark`
 
-- **Namespace:** `com.winlator.star`
+- **Namespace:** `com.antutu.ABenchMark`
 
 - **Version:** `AnTuTu`
 
