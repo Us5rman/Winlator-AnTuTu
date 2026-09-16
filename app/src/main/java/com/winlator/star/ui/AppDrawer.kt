@@ -54,6 +54,7 @@ private fun iconFor(screen: Screen): ImageVector = when (screen) {
     Screen.Shortcuts     -> Icons.Filled.OpenInNew
     Screen.InputControls -> Icons.Filled.SportsEsports
     Screen.AdrenoTools   -> Icons.Filled.Memory
+    Screen.Contents      -> Icons.Filled.FolderOpen
     Screen.Saves         -> Icons.Filled.Save
     Screen.FileManager   -> Icons.Filled.FolderOpen
     Screen.Settings      -> Icons.Filled.Settings
@@ -120,6 +121,7 @@ fun AppDrawerContent(
         SectionHeader("Tools")
         DrawerItem(Screen.InputControls, currentRoute, onNavigate)
         DrawerItem(Screen.AdrenoTools,   currentRoute, onNavigate)
+        DrawerItem(Screen.Contents,      currentRoute, onNavigate)
         DrawerItem(Screen.Saves,         currentRoute, onNavigate)
         DrawerItem(Screen.LsfgSettings,  currentRoute, onNavigate)
 
