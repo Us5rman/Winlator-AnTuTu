@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" width="1500" height="500" alt="Winlator AnTuTu" />  
+  <img src="logo.png" width="500" height="500" alt="Winlator AnTuTu" />  
 </p>
 
 <h1 align="center"> ✨ Winlator AnTuTu</h1>
