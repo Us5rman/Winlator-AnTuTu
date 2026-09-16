@@ -168,13 +168,17 @@ fun ContainerDetailScreen(
     }
 
     if (showGraphicsDriverConfig) {
-        GraphicsDriverConfigDialog(
+        GraphicsDriverSettingsDialog(
             graphicsDriver = StringUtils.parseIdentifier(viewModel.selectedGraphicsDriver),
             initialConfig = viewModel.graphicsDriverConfig,
-            onConfirm = { newConfig -> viewModel.graphicsDriverConfig = newConfig; showGraphicsDriverConfig = false },
+            onConfirm = { newConfig -> 
+                viewModel.graphicsDriverConfig = newConfig
+                showGraphicsDriverConfig = false 
+            },
             onDismiss = { showGraphicsDriverConfig = false }
         )
     }
+    
     val isVegasWrapper = StringUtils.parseIdentifier(viewModel.selectedDXWrapper ?: "").contains("vegas")
     if (showDxvkConfig) {
         DxvkConfigDialog(
