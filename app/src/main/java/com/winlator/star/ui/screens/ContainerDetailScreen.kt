@@ -88,7 +88,8 @@ fun ContainerDetailScreen(
         stringResource(R.string.advanced),
         stringResource(R.string.xr)
     )
-        Scaffold(
+
+    Scaffold(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -174,7 +175,8 @@ fun ContainerDetailScreen(
             onDismiss = { showGraphicsDriverConfig = false }
         )
     }
-        val isVegasWrapper = StringUtils.parseIdentifier(viewModel.selectedDXWrapper ?: "").contains("vegas")
+
+    val isVegasWrapper = StringUtils.parseIdentifier(viewModel.selectedDXWrapper ?: "").contains("vegas")
     if (showDxvkConfig) {
         DxvkConfigDialog(
             isArm64EC = viewModel.isArm64EC,
@@ -429,7 +431,6 @@ private fun TopLevelFields(
         }
     }
 }
-
 @Composable
 private fun WineConfigTab(
     viewModel: ContainerDetailViewModel,
@@ -522,6 +523,7 @@ private fun WinComponentRow(comp: WinComponentEntry, onSelect: (Int) -> Unit) {
         onSelect = { opt -> onSelect(options.indexOf(opt).coerceAtLeast(0)) }
     )
 }
+
 @Composable
 private fun EnvVarsTab(
     viewModel: ContainerDetailViewModel,
@@ -567,7 +569,6 @@ private fun EnvVarsTab(
         )
     }
 }
-
 @Composable
 private fun DrivesTab(viewModel: ContainerDetailViewModel) {
     val context = LocalContext.current
@@ -702,7 +703,7 @@ private fun AdvancedTab(
                 onSelect = { opt -> viewModel.selectedBox64PresetIndex = viewModel.box64PresetEntries.indexOf(opt).coerceAtLeast(0) }
             )
         }
-                if (viewModel.isArm64EC) {
+        if (viewModel.isArm64EC) {
             SectionBox(title = "FEXCore") {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     LabeledDropdown(
@@ -814,7 +815,6 @@ private fun AdvancedTab(
         }
     }
 }
-
 @Composable
 private fun XRTab(viewModel: ContainerDetailViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -925,7 +925,6 @@ internal fun SectionBox(
         }
     }
 }
-
 @Composable
 internal fun LabeledDropdown(
     label: String,
@@ -1222,7 +1221,6 @@ internal fun ExtensionPickerDialog(
         }
     )
 }
-
 @Composable
 internal fun DxvkConfigDialog(
     isArm64EC: Boolean,
