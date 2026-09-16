@@ -1,15 +1,14 @@
 <p align="center">
-  <img src="logo.png" width="500" height="500" alt="Winlator AnTuTu" />  
+  <img src="<img width="500" height="500" alt="1001321498" src="https://github.com/user-attachments/assets/56737210-25a5-458b-a639-0f7f0ab19e53" />
+" width="500" height="500" alt="Winlator AnTuTu" />  
 </p>
 
-<h1 align="center"> ✨ Winlator AnTuTu</h1>
+<h1 align="center">Winlator AnTuTu</h1>
 
 **Winlator AnTuTu** is an open-source Android application designed to run PC games and benchmark workloads with optimal performance. Built on top of the Star Bionic lineage, it incorporates native frame generation, custom Vulkan/Mali wrappers, and performance-oriented optimizations for mobile hardware.
 
 **Information:**
 - **Package:** `com.antutu.ABenchMark`
-
-- **Namespace:** `com.antutu.ABenchMark`
 
 - **Version:** `AnTuTu`
 
