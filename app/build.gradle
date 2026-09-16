@@ -77,7 +77,7 @@ android {
     defaultConfig {
         minSdkVersion 26
         targetSdkVersion 28
-        versionCode 0
+        versionCode 1
         versionName "AnTuTu"
 
         externalNativeBuild {
