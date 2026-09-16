@@ -66,7 +66,7 @@ tasks.register("prepareKotlinBuildScriptModel"){}
 preBuild.dependsOn(downloadImageFS)
 
 android {
-    namespace 'com.antutu.ABenchMark'
+    namespace 'com.winlator.star'
     compileSdk 34
     buildToolsVersion "35.0.0"
 
