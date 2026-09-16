@@ -1,6 +1,5 @@
 <p align="center">
-  <img width="500" height="500" alt="1001321498" src="https://github.com/user-attachments/assets/b9934fa6-d929-402e-b3a6-36eeb733f2b7" />
- alt="Winlator AnTuTu" />  
+  <img width="500" height="500" alt="1001321498" src="https://github.com/user-attachments/assets/b9934fa6-d929-402e-b3a6-36eeb733f2b7" />  
 </p>
 
 <h1 align="center">Winlator AnTuTu</h1>
