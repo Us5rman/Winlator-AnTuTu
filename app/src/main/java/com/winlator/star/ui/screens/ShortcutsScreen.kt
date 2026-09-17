@@ -270,8 +270,7 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             topBarActionsSetter {}
         }
     }
-
-    Box(
+        Box(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBg)
@@ -344,7 +343,8 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             )
         }
     }
-        // Modal: Container Picker for Adding / Scanning
+
+    // Modal: Container Picker for Adding / Scanning
     if (showImportContainerPicker) {
         val containers = vm.getContainers()
         AlertDialog(
@@ -418,8 +418,7 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             }
         )
     }
-
-    // Auto Detect Game Executables Selection Dialog
+        // Auto Detect Game Executables Selection Dialog
     if (showExeSelectionDialog) {
         val container = vm.getContainerById(autoDetectContainerIndex)
         AlertDialog(
@@ -1387,6 +1386,7 @@ private fun GraphicsSettingsTab(
         )
     }
 }
+
 @Composable
 private fun ControlsAndSoundSettingsTab(
     controlsProfile: String,
@@ -1463,7 +1463,6 @@ private fun AdvancedSettingsTab(
         )
     }
 }
-
 @Composable
 private fun DropdownSettingSelector(
     label: String,
@@ -1525,6 +1524,7 @@ private fun DropdownSettingSelector(
         }
     }
 }
+
 private fun createPinnedShortcut(context: Context, shortcut: Shortcut) {
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
         val shortcutManager = context.getSystemService(ShortcutManager::class.java)
