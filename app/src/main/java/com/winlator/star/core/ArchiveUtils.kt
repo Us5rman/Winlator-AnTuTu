@@ -7,6 +7,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
+import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
@@ -184,8 +185,9 @@ object ArchiveUtils {
     }
 
     private fun extractTarZst(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Unit)?): Boolean {
-        // Relies on com.github.luben:zstd-jni, already a project dependency.
-        val zstdInput = com.github.luben.zstd.ZstdInputStream(BufferedInputStream(FileInputStream(archive)))
+        // Matches TarCompressorUtils' approach: commons-compress' zstandard package,
+        // which wraps zstd-jni internally — no direct zstd-jni API usage needed here.
+        val zstdInput = ZstdCompressorInputStream(BufferedInputStream(FileInputStream(archive)))
         return extractTar(zstdInput, destinationDir, onProgress)
     }
 
