@@ -27,7 +27,7 @@ object AppThemeState {
     val colorScheme: kotlinx.coroutines.flow.Flow<ColorScheme> =
         combine(_presetIndex, _customAccent, _isDarkMode) { index, accent, dark ->
             val preset = if (index == CUSTOM_PRESET_INDEX)
-                themePrefs.getOrElse(_customBaseIndex.value) { themePresets.first() }
+                themePresets.getOrElse(_customBaseIndex.value) { themePresets.first() }
             else
                 themePresets.getOrElse(index) { themePresets.first() }
             val override = if (index == CUSTOM_PRESET_INDEX) accent else null
@@ -40,7 +40,6 @@ object AppThemeState {
 
         _presetIndex.value = themePrefs.getInt("preset_index", 1).coerceIn(0, themePresets.size - 1)
         
-        // Updated fallback initialization color to match the icon's cyan theme
         val savedAccent = themePrefs.getInt("custom_accent", Color(0xFF00E5FF).toArgb())
         _customAccent.value = Color(savedAccent)
         _customBaseIndex.value = themePrefs.getInt("custom_base_index", 1).coerceIn(0, CUSTOM_PRESET_INDEX)
