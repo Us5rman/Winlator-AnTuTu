@@ -9,8 +9,6 @@
 **Information:**
 - **Package:** `com.antutu.ABenchMark`
 
-- **Version:** `AnTuTu`
-
 - **Android SDK:** `compileSdk 34`, `targetSdk 28`, `minSdk 26` (Android 8.0+)
 
 - **Upstream Lineage:** Winlator → cmod → Bionic Nightly → Star Marcescence → WinHub / Star Bionic → Winlator AnTuTu
