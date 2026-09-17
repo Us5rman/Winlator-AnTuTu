@@ -10,13 +10,13 @@ on:
     paths-ignore:
       - '**.md'      # Ignores triggers when updating documentation
 
-  # Retains the manual "Run workflow" button in the GitHub UI
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build'
-        required: false
-        default: 'main'
+  # Manual "Run workflow" button in the GitHub UI.
+  # The branch/tag to run against is chosen via GitHub's own branch picker
+  # in the Actions tab (top-left dropdown when you click "Run workflow") —
+  # that picker checks out the workflow file FROM that branch and runs it,
+  # so github.ref already reflects the chosen branch without needing an
+  # extra text input.
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
     - name: Clone repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.inputs.branch || github.ref }}
+        ref: ${{ github.ref }}
         submodules: recursive
 
     - name: Set up JDK 17
