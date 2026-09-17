@@ -15,19 +15,19 @@ object AppThemeState {
     private val _presetIndex = MutableStateFlow(1)
     val presetIndex: StateFlow<Int> = _presetIndex
 
-    private val _customAccent = MutableStateFlow(Color(0xFF8B6BE0))
+    // Updated default accent to match the icon's electric cyan/blue tone
+    private val _customAccent = MutableStateFlow(Color(0xFF00E5FF))
     val customAccent: StateFlow<Color> = _customAccent
 
     private val _isDarkMode = MutableStateFlow(true)
     val isDarkMode: StateFlow<Boolean> = _isDarkMode
 
-    // The preset whose background/surface colors back the custom accent
     private val _customBaseIndex = MutableStateFlow(0)
 
     val colorScheme: kotlinx.coroutines.flow.Flow<ColorScheme> =
         combine(_presetIndex, _customAccent, _isDarkMode) { index, accent, dark ->
             val preset = if (index == CUSTOM_PRESET_INDEX)
-                themePresets.getOrElse(_customBaseIndex.value) { themePresets.first() }
+                themePrefs.getOrElse(_customBaseIndex.value) { themePresets.first() }
             else
                 themePresets.getOrElse(index) { themePresets.first() }
             val override = if (index == CUSTOM_PRESET_INDEX) accent else null
@@ -39,7 +39,9 @@ object AppThemeState {
         themePrefs = context.getSharedPreferences("winlator_theme", Context.MODE_PRIVATE)
 
         _presetIndex.value = themePrefs.getInt("preset_index", 1).coerceIn(0, themePresets.size - 1)
-        val savedAccent = themePrefs.getInt("custom_accent", Color(0xFF8B6BE0).toArgb())
+        
+        // Updated fallback initialization color to match the icon's cyan theme
+        val savedAccent = themePrefs.getInt("custom_accent", Color(0xFF00E5FF).toArgb())
         _customAccent.value = Color(savedAccent)
         _customBaseIndex.value = themePrefs.getInt("custom_base_index", 1).coerceIn(0, CUSTOM_PRESET_INDEX)
         _isDarkMode.value = true
@@ -51,7 +53,6 @@ object AppThemeState {
     }
 
     fun setCustomAccent(color: Color) {
-        // Snapshot the current base only when leaving a real preset for custom mode
         if (_presetIndex.value != CUSTOM_PRESET_INDEX) {
             _customBaseIndex.value = _presetIndex.value
             themePrefs.edit().putInt("custom_base_index", _customBaseIndex.value).apply()
@@ -75,10 +76,6 @@ object AppThemeState {
                else                   preset.toLightColorScheme(accentOverride = override)
     }
 
-    /** Java-friendly entry point: returns the current accent (primary) color as an
-     *  ARGB int. Used by legacy AndroidView widgets (CPUListView, EnvVarsView) so
-     *  they can tint their CheckBox/ToggleButton drawables to match the Compose
-     *  accent picker. */
     @JvmStatic
     fun getCurrentAccentArgb(): Int = currentColorSchemeSnapshot().primary.toArgb()
 }
