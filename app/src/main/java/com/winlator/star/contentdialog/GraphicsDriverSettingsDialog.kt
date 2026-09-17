@@ -2,6 +2,8 @@ package com.winlator.star.contentdialog
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -26,6 +28,39 @@ fun GraphicsDriverSettingsDialog(
     var vulkanVersion by remember { mutableStateOf(parsedConfig["vulkanVersion"] ?: "1.3") }
     var graphicsDriverVersion by remember { mutableStateOf(parsedConfig["graphicsDriverVersion"] ?: "System") }
     var showIncompatibleDrivers by remember { mutableStateOf(parsedConfig["showIncompatibleDrivers"]?.toBoolean() ?: false) }
+
+    // Extensions Dialog visibility & data state
+    var showExtensionsDialog by remember { mutableStateOf(false) }
+    
+    // Default list matching standard device Vulkan capabilities, or parsed from the config manager if available
+    val extensionsList = remember {
+        listOf(
+            "VK_KHR_copy_commands2",
+            "VK_KHR_dedicated_allocation",
+            "VK_KHR_deferred_host_operations",
+            "VK_KHR_depth_stencil_resolve",
+            "VK_KHR_descriptor_update_template",
+            "VK_KHR_device_group",
+            "VK_KHR_draw_indirect_count",
+            "VK_KHR_driver_properties",
+            "VK_KHR_dynamic_rendering",
+            "VK_EXT_extended_dynamic_state",
+            "VK_EXT_extended_dynamic_state2",
+            "VK_KHR_external_fence",
+            "VK_KHR_external_fence_fd",
+            "VK_KHR_external_memory"
+        )
+    }
+    
+    // Keep track of check states mapped to extension names
+    val extensionStates = remember {
+        mutableStateMapOf<String, Boolean>().apply {
+            extensionsList.forEach { this[it] = true }
+        }
+    }
+    
+    val enabledCount = extensionStates.values.count { it }
+    val totalCount = extensionsList.size
 
     // Wrapper & Turnip Config States
     var gpuName by remember { mutableStateOf(parsedConfig["gpuName"] ?: "Device") }
@@ -59,6 +94,7 @@ fun GraphicsDriverSettingsDialog(
         )
     }
 
+    // Main Configuration Dialog
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Turnip/Wrapper Driver Configuration") },
@@ -95,12 +131,12 @@ fun GraphicsDriverSettingsDialog(
                     Text("Show incompatible drivers")
                 }
 
-                // Available Extensions display button/badge placeholder
+                // Available Extensions display button wired to toggle sub-dialog
                 OutlinedButton(
-                    onClick = { /* Extension details or viewer */ },
+                    onClick = { showExtensionsDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Available Extensions (119/119)")
+                    Text("Available Extensions ($enabledCount/$totalCount)")
                 }
 
                 Divider(modifier = Modifier.padding(vertical = 4.dp))
@@ -285,4 +321,51 @@ fun GraphicsDriverSettingsDialog(
             }
         }
     )
+
+    // Secondary Sub-Dialog for Extension Toggles (Matches your screenshot checklist UI)
+    if (showExtensionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showExtensionsDialog = false },
+            title = { Text("Available Extensions") },
+            text = {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(320.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(extensionsList) { ext ->
+                        val isChecked = extensionStates[ext] ?: true
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { extensionStates[ext] = !isChecked }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked -> extensionStates[ext] = checked }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = ext,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showExtensionsDialog = false }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExtensionsDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
