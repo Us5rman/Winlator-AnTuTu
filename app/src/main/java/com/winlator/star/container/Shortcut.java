@@ -30,6 +30,7 @@ public class Shortcut {
     private Bitmap coverArt; // Changed to private to use getter method
     private String customCoverArtPath; // Path to custom cover art
     private String iconPath; // Path to a custom-picked shortcut icon
+    private String extraArgs; // Extra launch arguments appended to the run command
 
     private static final String COVER_ART_DIR = "app_data/cover_arts/"; // Removed leading "/" to keep it relative
 
@@ -95,6 +96,7 @@ public class Shortcut {
 
         this.customCoverArtPath = getExtra("customCoverArtPath");
         this.iconPath = getExtra("iconPath");
+        this.extraArgs = getExtra("extraArgs");
 
         // Load cover art if available
         loadCoverArt();
@@ -150,6 +152,19 @@ public class Shortcut {
         putExtra("iconPath", iconPath); // Save the custom icon path to extra data
         saveData(); // Save immediately to ensure persistence
         Log.d("Shortcut", "Set and saved custom icon path: " + iconPath);
+    }
+
+    // Getter and setter for extra launch arguments (used by ShortcutSettingsDialog /
+    // ShortcutsScreen.kt as shortcut.extraArgs)
+    public String getExtraArgs() {
+        return extraArgs;
+    }
+
+    public void setExtraArgs(String extraArgs) {
+        this.extraArgs = extraArgs;
+        putExtra("extraArgs", extraArgs); // Save the extra launch args to extra data
+        saveData(); // Save immediately to ensure persistence
+        Log.d("Shortcut", "Set and saved extra args: " + extraArgs);
     }
 
     public String getExtra(String name) {
