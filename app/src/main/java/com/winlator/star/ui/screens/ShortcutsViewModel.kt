@@ -13,6 +13,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.winlator.star.container.Container
 import com.winlator.star.container.ContainerManager
 import com.winlator.star.container.Shortcut
+import com.winlator.star.core.ExeIconExtractor
 import com.winlator.star.core.FileUtils
 import com.winlator.star.store.StarLaunchBridge
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -213,7 +214,7 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         container.drives = newDrives
         try {
             container.saveData()
-            Log.d(TAG, "Auto-added drive $letter: -> $parent (container ${container.id})")
+            Log.d(TAG, "Auto-added drive $letter: -> $parent (container${container.id})")
         } catch (e: Exception) {
             Log.w(TAG, "Drive persist failed (continuing with in-memory mapping)", e)
         }
