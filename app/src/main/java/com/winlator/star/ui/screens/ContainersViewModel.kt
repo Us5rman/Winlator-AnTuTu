@@ -6,7 +6,6 @@ import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import com.winlator.star.container.Container
 import com.winlator.star.container.ContainerManager
-import com.winlator.star.ui.screens.ShortcutsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -32,7 +31,6 @@ class ContainersViewModel(app: Application) : AndroidViewModel(app) {
 
     fun duplicate(container: Container, onDone: () -> Unit) {
         _isLoading.value = true
-        // duplicateContainerAsync posts its callback on the main Handler internally
         manager.duplicateContainerAsync(container) {
             _isLoading.value = false
             refresh()
@@ -71,13 +69,18 @@ class ContainersViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun remove(container: Container, context: Context, onDone: () -> Unit) {
-        // Disable any home-screen shortcuts pinned for this container before removing it
-        manager.loadShortcuts()
-            .filter { it.container == container }
-            .forEach { ShortcutsViewModel.disableOnScreen(context, it) }
+        // Safe check for desktop shortcuts related to this container
+        try {
+            manager.loadShortcuts()
+                .filter { it.container == container }
+                .forEach { shortcut ->
+                    ShortcutsViewModel.disableOnScreen(context, shortcut)
+                }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         _isLoading.value = true
-        // removeContainerAsync posts its callback on the main Handler internally
         manager.removeContainerAsync(container) {
             _isLoading.value = false
             refresh()
