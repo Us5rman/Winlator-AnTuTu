@@ -1,22 +1,21 @@
-name: Any branch compilation
+Name: Any branch compilation
 
 on:
-  # Triggers automatically on code push
   push:
     branches:
       - main
       - master
-      - 'feature/**' # Optional: automatically builds feature branches
+      - Noble
+      - 'feature/**'
     paths-ignore:
-      - '**.md'      # Ignores triggers when updating documentation
+      - '**.md'
 
-  # Retains the manual "Run workflow" button in the GitHub UI
   workflow_dispatch:
     inputs:
       branch:
         description: 'Branch to build'
         required: false
-        default: 'main'
+        default: 'Noble'
 
 jobs:
   build:
@@ -26,7 +25,7 @@ jobs:
     - name: Clone repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.inputs.branch || github.ref }}
+        ref: ${{ github.event.inputs.branch || github.ref_name }}
         submodules: recursive
 
     - name: Set up JDK 17
