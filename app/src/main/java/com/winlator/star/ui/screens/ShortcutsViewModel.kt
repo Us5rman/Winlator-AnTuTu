@@ -172,10 +172,7 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         val safeName = displayName.replace(Regex("""[\\/:*?"<>|]"""), "_").trim().ifEmpty { "game" }
         val shortcutFile = File(desktopDir, "$safeName.desktop")
 
-        // Resolve to a Wine drive letter against the container's mount map. Z: would
-        // map to imagefs root (chroot view) and not reach external storage, so we use
-        // F:/D:/etc. as defined in container.drives. If no existing drive contains the
-        // EXE path we add and persist a new letter pointing at the parent directory.
+        // Resolve to a Wine drive letter against the container's mount map.
         val winPath = resolveWindowsPath(container, exeFile.absolutePath)
         // 4-backslash separators per Winlator's two-pass StringUtils.unescape().
         val escaped = winPath.replace("\\", "\\\\\\\\")
@@ -194,11 +191,6 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         return shortcutFile
     }
 
-    /**
-     * Builds a Wine-side Windows path for `exePath` using the container's drive map.
-     * If no existing drive contains the EXE, a new letter is allocated to the EXE's
-     * parent folder and persisted on the container.
-     */
     private fun resolveWindowsPath(container: Container, exePath: String): String {
         val match = bestDriveMatch(container, exePath)
         if (match != null) {
@@ -206,7 +198,6 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
             val rel = exePath.removePrefix(mountPath).removePrefix("/").replace("/", "\\")
             return "$letter:\\$rel"
         }
-        // No existing drive — allocate one for the parent folder and persist.
         val parent = File(exePath).parentFile?.absolutePath ?: "/"
         val letter = allocateDriveLetter(container)
             ?: throw IOException("No free drive letter available to map $parent")
@@ -222,7 +213,6 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         return "$letter:\\$fileName"
     }
 
-    /** Returns (letter, mountPath) of the longest-matching drive prefix, or null. */
     private fun bestDriveMatch(container: Container, exePath: String): Pair<String, String>? {
         var best: Pair<String, String>? = null
         for (entry in container.drivesIterator()) {
@@ -238,11 +228,9 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         return best
     }
 
-    /** Picks the next free drive letter (skips C: and Z:, plus anything already mapped). */
     private fun allocateDriveLetter(container: Container): String? {
         val used = mutableSetOf("C", "Z")
         for (entry in container.drivesIterator()) used += entry[0].uppercase()
-        // Try G..Y first to avoid stomping on common user-set letters (D/E/F).
         val order = ('G'..'Y').map { it.toString() } +
                 listOf("A", "B", "D", "E", "F")
         return order.firstOrNull { it !in used }
@@ -275,7 +263,6 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         val raw = manager.loadShortcuts()
-        // filter out corrupted entries (matches original Fragment logic)
         _shortcuts.value = raw.filter { it != null && it.file != null && it.file.name.isNotEmpty() }
     }
 
@@ -299,14 +286,14 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         return result
     }
 
-    fun containers() = manager.getContainers()
+    fun containers(): List<Container> = manager.getContainers()
 
     fun renameImportedShortcut(containerIndex: Int, oldName: String, newName: String) {
         if (oldName == newName || newName.isBlank()) return
-        val containers = manager.getContainers()
+        val containers: List<Container> = manager.getContainers()
         if (containerIndex < 0 || containerIndex >= containers.size) return
-        val container = containers[containerIndex]
-        val desktopDir = container.getDesktopDir()
+        val container: Container = containers[containerIndex]
+        val desktopDir: File = container.getDesktopDir()
         val oldFile = File(desktopDir, "$oldName.desktop")
         val newFile = File(desktopDir, "$newName.desktop")
         if (oldFile.isFile && !newFile.isFile && oldFile.renameTo(newFile)) {
