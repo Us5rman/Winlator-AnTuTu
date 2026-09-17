@@ -22,6 +22,11 @@ fun GraphicsDriverSettingsDialog(
         GraphicsDriverConfigDialog.parseGraphicsDriverConfig(initialConfig) 
     }
 
+    // Top Header States from your screenshot
+    var vulkanVersion by remember { mutableStateOf(parsedConfig["vulkanVersion"] ?: "1.3") }
+    var graphicsDriverVersion by remember { mutableStateOf(parsedConfig["graphicsDriverVersion"] ?: "System") }
+    var showIncompatibleDrivers by remember { mutableStateOf(parsedConfig["showIncompatibleDrivers"]?.toBoolean() ?: false) }
+
     // Wrapper & Turnip Config States
     var gpuName by remember { mutableStateOf(parsedConfig["gpuName"] ?: "Device") }
     var maxDeviceMemory by remember { mutableStateOf(parsedConfig["maxDeviceMemory"] ?: "0 (Default)") }
@@ -64,11 +69,55 @@ fun GraphicsDriverSettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Vulkan Version
+                OutlinedTextField(
+                    value = vulkanVersion,
+                    onValueChange = { vulkanVersion = it },
+                    label = { Text("Vulkan Version") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Graphics Driver Version
+                OutlinedTextField(
+                    value = graphicsDriverVersion,
+                    onValueChange = { graphicsDriverVersion = it },
+                    label = { Text("Graphics Driver Version") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Show Incompatible Drivers Checkbox
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().clickable { showIncompatibleDrivers = !showIncompatibleDrivers }
+                ) {
+                    Checkbox(checked = showIncompatibleDrivers, onCheckedChange = { showIncompatibleDrivers = it })
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Show incompatible drivers")
+                }
+
+                // Available Extensions display button/badge placeholder
+                OutlinedButton(
+                    onClick = { /* Extension details or viewer */ },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Available Extensions (119/119)")
+                }
+
+                Divider(modifier = Modifier.padding(vertical = 4.dp))
+
                 // GPU Name field
                 OutlinedTextField(
                     value = gpuName,
                     onValueChange = { gpuName = it },
                     label = { Text("GPU Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Max Device Memory
+                OutlinedTextField(
+                    value = maxDeviceMemory,
+                    onValueChange = { maxDeviceMemory = it },
+                    label = { Text("Max Device Memory") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -182,7 +231,7 @@ fun GraphicsDriverSettingsDialog(
                             2 -> "5x5 (High Quality)"
                             3 -> "6x6 (Balanced)"
                             4 -> "8x8 (High Compression)"
-                            5 -> "12x12 (Max compression)"
+                            5 -> "12x12 (Max Compression)"
                             else -> "6x6"
                         }
                         Text("ASTC Block Size: $currentLabel", style = MaterialTheme.typography.bodyMedium)
@@ -198,6 +247,9 @@ fun GraphicsDriverSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = {
+                parsedConfig["vulkanVersion"] = vulkanVersion
+                parsedConfig["graphicsDriverVersion"] = graphicsDriverVersion
+                parsedConfig["showIncompatibleDrivers"] = showIncompatibleDrivers.toString()
                 parsedConfig["gpuName"] = gpuName
                 parsedConfig["maxDeviceMemory"] = maxDeviceMemory
                 parsedConfig["presentModes"] = presentModes
