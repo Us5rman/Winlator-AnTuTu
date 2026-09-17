@@ -155,7 +155,6 @@ import java.lang.reflect.Field
 private val PSBlue = Color(0xFF0072CE)
 private val PSRed = Color(0xFFD32F2F)
 private val DarkBg = Color(0xFF0D0D0D)
-
 @Composable
 fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
     val shortcuts by vm.shortcuts.collectAsState(initial = emptyList())
@@ -220,7 +219,6 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             pendingImportContainerIndex = -1
         }
     }
-
 
     // Set up top bar action icons for sort, grid toggle, and game scanner
     val topBarActionsSetter = LocalTopBarActions.current
@@ -292,7 +290,6 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             }
         } else {
             if (isGridView) {
-                // PS4 Style Grid (Horizontal Landscape Large Cards - Aspect 2:3 Cover Art)
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 135.dp),
                     contentPadding = PaddingValues(16.dp),
@@ -312,7 +309,6 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
                     }
                 }
             } else {
-                // Traditional Compact List View
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -332,7 +328,6 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             }
         }
 
-        // Compact Floating Action Button in Bottom Right Corner
         FloatingActionButton(
             onClick = { showImportContainerPicker = true },
             containerColor = PSBlue,
@@ -349,8 +344,7 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             )
         }
     }
-
-    // Modal: Container Picker for Adding / Scanning
+        // Modal: Container Picker for Adding / Scanning
     if (showImportContainerPicker) {
         val containers = vm.getContainers()
         AlertDialog(
@@ -424,7 +418,6 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             }
         )
     }
-
 
     // Auto Detect Game Executables Selection Dialog
     if (showExeSelectionDialog) {
@@ -692,7 +685,7 @@ private fun PS4GridShortcutCard(
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.67f) // 2:3 Aspect ratio for vertical cover art
+            .aspectRatio(0.67f)
             .clip(RoundedCornerShape(12.dp))
             .combinedClickable(
                 onClick = onClick,
@@ -700,7 +693,6 @@ private fun PS4GridShortcutCard(
             )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Full-bleed Cover Image or Default Placeholder
             if (iconBitmap != null) {
                 Image(
                     bitmap = iconBitmap.asImageBitmap(),
@@ -728,7 +720,6 @@ private fun PS4GridShortcutCard(
                 }
             }
 
-            // Bottom Gradient Overlay for Title Legibility
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -741,7 +732,6 @@ private fun PS4GridShortcutCard(
                     )
             )
 
-            // Title & Action Menu Trigger
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1032,7 +1022,6 @@ private fun ShortcutSettingsDialog(
     var iconPath by remember { mutableStateOf(shortcut.iconPath) }
     var wmClass by remember { mutableStateOf(shortcut.wmClass) }
 
-    // Graphics & Display Settings State
     var screenResolution by remember { mutableStateOf(shortcut.getExtra("screenResolution", "1280x720")) }
     var graphicsDriver by remember { mutableStateOf(shortcut.getExtra("graphicsDriver", "Turnip")) }
     var dxvkVersion by remember { mutableStateOf(shortcut.getExtra("dxvkVersion", "2.3.1")) }
@@ -1040,11 +1029,9 @@ private fun ShortcutSettingsDialog(
     var box64Preset by remember { mutableStateOf(shortcut.getExtra("box64Preset", "Intermediate")) }
     var fexCorePreset by remember { mutableStateOf(shortcut.getExtra("fexCorePreset", "Intermediate")) }
 
-    // Controls & Audio Settings State
     var controlsProfile by remember { mutableStateOf(shortcut.getExtra("controlsProfile", "Default")) }
     var midiSoundFont by remember { mutableStateOf(shortcut.getExtra("midiSoundFont", "Default")) }
 
-    // System / CPU State
     var cpuAffinity by remember { mutableStateOf(shortcut.getExtra("cpuAffinity", "All")) }
     var envVars by remember { mutableStateOf(shortcut.getExtra("envVars", "")) }
 
@@ -1062,7 +1049,6 @@ private fun ShortcutSettingsDialog(
                 .fillMaxHeight(0.85f)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Dialog Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1084,7 +1070,6 @@ private fun ShortcutSettingsDialog(
                     }
                 }
 
-                // Category Tabs
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = Color.Black,
@@ -1105,7 +1090,6 @@ private fun ShortcutSettingsDialog(
                     }
                 }
 
-                // Tab Content Area
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -1151,7 +1135,6 @@ private fun ShortcutSettingsDialog(
                     }
                 }
 
-                // Action Footer
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1589,11 +1572,12 @@ sealed class ImportResult {
     data class Success(val shortcutName: String) : ImportResult()
     data class Error(val message: String) : ImportResult()
 }
+
 class ShortcutsViewModel : androidx.lifecycle.ViewModel() {
     private val _sortOrder = kotlinx.coroutines.flow.MutableStateFlow(SortOrder.NAME_ASC)
     val sortOrder: kotlinx.coroutines.flow.StateFlow<SortOrder> = _sortOrder
 
-    private val _isGridView = kotlinx.coroutines.flow.MutableStateFlow(true) // Default to Grid (PS4 Style)
+    private val _isGridView = kotlinx.coroutines.flow.MutableStateFlow(true)
     val isGridView: kotlinx.coroutines.flow.StateFlow<Boolean> = _isGridView
 
     private val _shortcuts = kotlinx.coroutines.flow.MutableStateFlow<List<Shortcut>>(emptyList())
@@ -1612,8 +1596,15 @@ class ShortcutsViewModel : androidx.lifecycle.ViewModel() {
         _isGridView.value = !_isGridView.value
     }
 
+    fun launchShortcut(shortcut: Shortcut, activity: Activity) {
+        val intent = Intent(activity, XServerDisplayActivity::class.java).apply {
+            putExtra("shortcut_path", shortcut.file.absolutePath)
+            putExtra("container_id", shortcut.container.id)
+        }
+        activity.startActivity(intent)
+    }
+
     fun getContainers(): List<Container> {
-        // Fetch existing container profiles configured in Winlator
         val containers = mutableListOf<Container>()
         val profilesDir = File(FileUtils.getProfilesDir())
         if (profilesDir.exists()) {
