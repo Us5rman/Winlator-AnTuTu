@@ -65,7 +65,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.winlator.star.R
-import com.winlator.star.ui.theme.GlowPurple
 import com.winlator.star.ui.theme.Primary
 import com.winlator.star.ui.theme.PrimaryDim
 import com.winlator.star.ui.theme.WinlatorTheme
@@ -85,7 +84,6 @@ fun setupComposeView(view: ComposeView) {
         }
     }
 }
-
 @Composable
 fun XServerDrawer() {
     val state = XServerDrawerState
@@ -136,7 +134,7 @@ fun XServerDrawer() {
                 modifier = Modifier
                     .width(36.dp)
                     .height(2.dp)
-                    .background(GlowPurple, RoundedCornerShape(1.dp))
+                    .background(Primary, RoundedCornerShape(1.dp))
             )
 
             Spacer(Modifier.height(10.dp))
@@ -188,7 +186,7 @@ private fun TabIconButton(iconRes: Int, isSelected: Boolean, onClick: () -> Unit
     else
         Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
 
-    val borderColor = if (isSelected) GlowPurple.copy(alpha = 0.6f) else Color(0xFF333333)
+    val borderColor = if (isSelected) Primary.copy(alpha = 0.6f) else Color(0xFF333333)
     val tintColor = if (isSelected) Color.White else MutedWhite
 
     Box(
@@ -204,7 +202,7 @@ private fun TabIconButton(iconRes: Int, isSelected: Boolean, onClick: () -> Unit
             Canvas(Modifier.size(44.dp)) {
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(GlowPurple.copy(alpha = 0.25f), Color.Transparent),
+                        colors = listOf(Primary.copy(alpha = 0.25f), Color.Transparent),
                         radius = size.minDimension / 2f
                     ),
                     radius = size.minDimension / 2f
@@ -227,7 +225,7 @@ private fun FpsTabButton(isSelected: Boolean, onClick: () -> Unit) {
     else
         Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
 
-    val borderColor = if (isSelected) GlowPurple.copy(alpha = 0.6f) else Color(0xFF333333)
+    val borderColor = if (isSelected) Primary.copy(alpha = 0.6f) else Color(0xFF333333)
     val textColor = if (isSelected) Color.White else Primary
 
     Box(
@@ -243,7 +241,7 @@ private fun FpsTabButton(isSelected: Boolean, onClick: () -> Unit) {
             Canvas(Modifier.size(44.dp)) {
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(GlowPurple.copy(alpha = 0.25f), Color.Transparent),
+                        colors = listOf(Primary.copy(alpha = 0.25f), Color.Transparent),
                         radius = size.minDimension / 2f
                     ),
                     radius = size.minDimension / 2f
@@ -275,7 +273,7 @@ private fun SectionHeader(title: String) {
                 .fillMaxWidth(0.4f)
                 .height(2.dp)
                 .background(
-                    Brush.horizontalGradient(listOf(GlowPurple, GlowPurple.copy(alpha = 0.1f))),
+                    Brush.horizontalGradient(listOf(Primary, Primary.copy(alpha = 0.1f))),
                     RoundedCornerShape(1.dp)
                 )
         )
@@ -305,7 +303,7 @@ private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = GlowPurple,
+                checkedThumbColor = Primary,
                 checkedTrackColor = PrimaryDim,
                 uncheckedThumbColor = ToggleThumbOff,
                 uncheckedTrackColor = ToggleTrackOff,
@@ -351,7 +349,7 @@ private fun LabeledSlider(
             valueRange = valueRange,
             steps = steps,
             colors = SliderDefaults.colors(
-                thumbColor = GlowPurple,
+                thumbColor = Primary,
                 activeTrackColor = Primary,
                 inactiveTrackColor = ToggleTrackOff,
                 activeTickColor = Color.Transparent,
@@ -378,7 +376,6 @@ private fun AccentButton(text: String, modifier: Modifier = Modifier, onClick: (
         Text(text, fontWeight = FontWeight.SemiBold)
     }
 }
-
 // ───── Graphics Tab ─────
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -597,7 +594,6 @@ private fun HudContent(state: XServerDrawerState) {
         "hudTransparency=${transValue.toInt()}",
     ).joinToString(",")
 
-    // Size and Opacity sliders
     LabeledSlider("HUD Scale", scaleValue, 50f..200f, { scaleValue = it }, { state.onFpsConfigApply?.invoke(buildConfig()) }, format = { "${it.toInt()}%" })
     LabeledSlider("HUD Opacity", transValue, 0f..100f, { transValue = it }, { state.onFpsConfigApply?.invoke(buildConfig()) }, format = { "${it.toInt()}%" })
 
@@ -628,7 +624,6 @@ private fun ControlsContent(state: XServerDrawerState) {
 
     SectionHeader("Controls")
 
-    // Input Controls section
     var selectedIdx by remember(initProfileIdx) { mutableIntStateOf(initProfileIdx) }
     var showTouchscreen by remember(initTouchscreen) { mutableStateOf(initTouchscreen) }
     var timeoutEnabled by remember(initTimeout) { mutableStateOf(initTimeout) }
@@ -695,7 +690,6 @@ private fun ControlsContent(state: XServerDrawerState) {
 
     HorizontalDivider(color = Color(0xFF1A1A1A), modifier = Modifier.padding(vertical = 6.dp))
 
-    // Mouse & Cursor section
     Text("Mouse & Cursor", color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     Spacer(Modifier.height(4.dp))
 
@@ -711,7 +705,6 @@ private fun ControlsContent(state: XServerDrawerState) {
 
     HorizontalDivider(color = Color(0xFF1A1A1A), modifier = Modifier.padding(vertical = 6.dp))
 
-    // Vibration section
     Text("Vibration", color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     Spacer(Modifier.height(4.dp))
 
@@ -828,7 +821,6 @@ private fun TmContent() {
 
     Spacer(Modifier.height(10.dp))
 
-    // CPU info
     Text(cpuTitle, color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     Spacer(Modifier.height(2.dp))
     Column(
@@ -845,7 +837,6 @@ private fun TmContent() {
 
     Spacer(Modifier.height(8.dp))
 
-    // Memory info
     Text(memTitle, color = Primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     Spacer(Modifier.height(2.dp))
     Box(
