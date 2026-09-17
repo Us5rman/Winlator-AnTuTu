@@ -1,4 +1,4 @@
-Name: Any branch compilation
+name: Any branch compilation
 
 on:
   push:
