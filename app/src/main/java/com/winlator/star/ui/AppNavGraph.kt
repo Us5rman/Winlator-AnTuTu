@@ -20,7 +20,7 @@ import com.winlator.star.ui.screens.FragmentScreen
 import com.winlator.star.ui.screens.SavesScreen
 import com.winlator.star.ui.screens.ShortcutsScreen
 import com.winlator.star.ui.screens.LsfgSettingsScreen
-import com.winlator.star.ui.screens.ContentsScreen // <-- Make sure your ContentsScreen import is here
+import com.winlator.star.ui.screens.ContentsScreen
 
 @Composable
 fun AppNavGraph(
@@ -74,7 +74,6 @@ fun AppNavGraph(
             AdrenoToolsScreen()
         }
 
-        // --- NEW CONTENTS ROUTE ---
         composable(Screen.Contents.route) {
             ContentsScreen()
         }
