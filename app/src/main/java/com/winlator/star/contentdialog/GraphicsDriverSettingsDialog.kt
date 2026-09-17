@@ -1,5 +1,6 @@
 package com.winlator.star.contentdialog
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,7 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import org.json.JSONArray
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,16 +23,15 @@ fun GraphicsDriverSettingsDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     val parsedConfig = remember { 
         GraphicsDriverConfigDialog.parseGraphicsDriverConfig(initialConfig) 
     }
 
-    // Top Header States
     var vulkanVersion by remember { mutableStateOf(parsedConfig["vulkanVersion"] ?: "1.3") }
     var graphicsDriverVersion by remember { mutableStateOf(parsedConfig["graphicsDriverVersion"] ?: "System") }
     var showIncompatibleDrivers by remember { mutableStateOf(parsedConfig["showIncompatibleDrivers"]?.toBoolean() ?: false) }
 
-    // Extensions Dialog visibility & dynamic data parsing
     var showExtensionsDialog by remember { mutableStateOf(false) }
     
     val rawExtensions = parsedConfig["supportedExtensions"] ?: "VK_KHR_copy_commands2,VK_KHR_dedicated_allocation,VK_KHR_deferred_host_operations,VK_KHR_depth_stencil_resolve,VK_KHR_descriptor_update_template,VK_KHR_device_group,VK_KHR_draw_indirect_count,VK_KHR_driver_properties,VK_KHR_dynamic_rendering,VK_EXT_extended_dynamic_state,VK_EXT_extended_dynamic_state2,VK_KHR_external_fence,VK_KHR_external_fence_fd,VK_KHR_external_memory"
@@ -51,11 +53,12 @@ fun GraphicsDriverSettingsDialog(
     val enabledCount = extensionStates.values.count { it }
     val totalCount = extensionsList.size
 
-    // Wrapper & Turnip Config States
+    val gpuCardsList = remember { loadGpuCardsFromAssets(context) }
     var gpuName by remember { mutableStateOf(parsedConfig["gpuName"] ?: "Device") }
+    var expandedGpuDropdown by remember { mutableStateOf(false) }
+
     var maxDeviceMemory by remember { mutableStateOf(parsedConfig["maxDeviceMemory"] ?: "0 (Default)") }
     
-    // Dropdown selection states
     var presentModes by remember { mutableStateOf(parsedConfig["presentModes"] ?: "mailbox") }
     var expandedPresentModes by remember { mutableStateOf(false) }
     val presentModesList = listOf("mailbox", "fifo", "immediate", "relaxed")
@@ -78,7 +81,6 @@ fun GraphicsDriverSettingsDialog(
     var disableKhrPresentWait by remember { mutableStateOf(parsedConfig["disableKhrPresentWait"]?.toBoolean() ?: true) }
     var oneUiHyperOsFix by remember { mutableStateOf(parsedConfig["oneUiHyperOsFix"]?.toBoolean() ?: false) }
 
-    // Texture Compression States
     var etc1 by remember { mutableStateOf(parsedConfig["etc1"]?.toBoolean() ?: false) }
     var etc2 by remember { mutableStateOf(parsedConfig["etc2"]?.toBoolean() ?: false) }
     var astc by remember { mutableStateOf(parsedConfig["astc"]?.toBoolean() ?: false) }
@@ -97,7 +99,6 @@ fun GraphicsDriverSettingsDialog(
         )
     }
 
-    // Main Configuration Dialog
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Turnip/Wrapper Driver Configuration") },
@@ -108,7 +109,6 @@ fun GraphicsDriverSettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Vulkan Version
                 OutlinedTextField(
                     value = vulkanVersion,
                     onValueChange = { vulkanVersion = it },
@@ -116,7 +116,6 @@ fun GraphicsDriverSettingsDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Graphics Driver Version
                 OutlinedTextField(
                     value = graphicsDriverVersion,
                     onValueChange = { graphicsDriverVersion = it },
@@ -124,7 +123,6 @@ fun GraphicsDriverSettingsDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Show Incompatible Drivers Checkbox
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { showIncompatibleDrivers = !showIncompatibleDrivers }
@@ -134,7 +132,6 @@ fun GraphicsDriverSettingsDialog(
                     Text("Show incompatible drivers")
                 }
 
-                // Available Extensions display button wired to toggle sub-dialog
                 OutlinedButton(
                     onClick = { showExtensionsDialog = true },
                     modifier = Modifier.fillMaxWidth()
@@ -144,23 +141,41 @@ fun GraphicsDriverSettingsDialog(
 
                 Divider(modifier = Modifier.padding(vertical = 4.dp))
 
-                // GPU Name field
-                OutlinedTextField(
-                    value = gpuName,
-                    onValueChange = { gpuName = it },
-                    label = { Text("GPU Name") },
+                ExposedDropdownMenuBox(
+                    expanded = expandedGpuDropdown,
+                    onExpandedChange = { expandedGpuDropdown = !expandedGpuDropdown },
                     modifier = Modifier.fillMaxWidth()
-                )
-
-                // Max Device Memory
-                OutlinedTextField(
+                ) {
+                    OutlinedTextField(
+                        value = gpuName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("GPU Name") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedGpuDropdown) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedGpuDropdown,
+                        onDismissRequest = { expandedGpuDropdown = false }
+                    ) {
+                        gpuCardsList.forEach { card ->
+                            DropdownMenuItem(
+                                text = { Text(card) },
+                                onClick = {
+                                    gpuName = card
+                                    expandedGpuDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+                                OutlinedTextField(
                     value = maxDeviceMemory,
                     onValueChange = { maxDeviceMemory = it },
                     label = { Text("Max Device Memory") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Present Modes Dropdown
                 ExposedDropdownMenuBox(
                     expanded = expandedPresentModes,
                     onExpandedChange = { expandedPresentModes = !expandedPresentModes },
@@ -190,7 +205,6 @@ fun GraphicsDriverSettingsDialog(
                     }
                 }
 
-                // Memory Resource Type Dropdown
                 ExposedDropdownMenuBox(
                     expanded = expandedMemoryResource,
                     onExpandedChange = { expandedMemoryResource = !expandedMemoryResource },
@@ -220,7 +234,6 @@ fun GraphicsDriverSettingsDialog(
                     }
                 }
 
-                // BCn Emulation Dropdown
                 ExposedDropdownMenuBox(
                     expanded = expandedBcnEmulation,
                     onExpandedChange = { expandedBcnEmulation = !expandedBcnEmulation },
@@ -250,7 +263,6 @@ fun GraphicsDriverSettingsDialog(
                     }
                 }
 
-                // BCn Emulation Type Dropdown (Compute / Software)
                 ExposedDropdownMenuBox(
                     expanded = expandedBcnType,
                     onExpandedChange = { expandedBcnType = !expandedBcnType },
@@ -283,7 +295,6 @@ fun GraphicsDriverSettingsDialog(
                 Divider(modifier = Modifier.padding(vertical = 4.dp))
                 Text("Toggles & Fixes", style = MaterialTheme.typography.titleSmall)
 
-                // Sync Every Frame
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { syncEveryFrame = !syncEveryFrame }
@@ -293,7 +304,6 @@ fun GraphicsDriverSettingsDialog(
                     Text("Sync Every Frame")
                 }
 
-                // Disable KHR_present_wait
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { disableKhrPresentWait = !disableKhrPresentWait }
@@ -303,7 +313,6 @@ fun GraphicsDriverSettingsDialog(
                     Text("Disable KHR_present_wait")
                 }
 
-                // OneUI / HyperOS Fix
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { oneUiHyperOsFix = !oneUiHyperOsFix }
@@ -316,7 +325,6 @@ fun GraphicsDriverSettingsDialog(
                 Divider(modifier = Modifier.padding(vertical = 4.dp))
                 Text("Texture Compression Settings", style = MaterialTheme.typography.titleSmall)
 
-                // ETC1 Checkbox
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { etc1 = !etc1 }
@@ -326,7 +334,6 @@ fun GraphicsDriverSettingsDialog(
                     Text("ETC1 (RGB)")
                 }
 
-                // ETC2 Checkbox
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { etc2 = !etc2 }
@@ -336,7 +343,6 @@ fun GraphicsDriverSettingsDialog(
                     Text("ETC2 (RGB/RGBA)")
                 }
 
-                // ASTC Checkbox
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { astc = !astc }
@@ -346,7 +352,6 @@ fun GraphicsDriverSettingsDialog(
                     Text("ASTC Support")
                 }
 
-                // Conditional ASTC Slider
                 if (astc) {
                     Column(
                         modifier = Modifier
@@ -415,7 +420,6 @@ fun GraphicsDriverSettingsDialog(
         }
     )
 
-    // Secondary Sub-Dialog for Extension Toggles
     if (showExtensionsDialog) {
         AlertDialog(
             onDismissRequest = { showExtensionsDialog = false },
@@ -441,24 +445,38 @@ fun GraphicsDriverSettingsDialog(
                                 onCheckedChange = { checked -> extensionStates[ext] = checked }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = ext,
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                            Text(text = ext, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showExtensionsDialog = false }) {
-                    Text("OK")
-                }
+                TextButton(onClick = { showExtensionsDialog = false }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showExtensionsDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showExtensionsDialog = false }) { Text("Cancel") }
             }
         )
     }
+}
+
+private fun loadGpuCardsFromAssets(context: Context): List<String> {
+    val list = mutableListOf("Device") 
+    try {
+        val inputStream = context.assets.open("gpu_cards.json")
+        val jsonString = inputStream.bufferedReader().use { it.readText() }
+        val jsonArray = JSONArray(jsonString)
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            val name = obj.optString("name")
+        
+            if (name.isNotEmpty() && name != "Device") {
+                list.add(name)
+            }
+        }
+    } catch (e: Exception) {
+        // Fallback if the asset file fails to read
+        list.add("NVIDIA RIVA 128")
+    }
+    return list
 }
