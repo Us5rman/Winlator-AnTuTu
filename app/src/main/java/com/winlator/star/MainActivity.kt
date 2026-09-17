@@ -13,16 +13,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -30,35 +30,36 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import com.winlator.star.ui.LocalTopBarActions
-import com.winlator.star.ui.topBarActionsState
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.preference.PreferenceManager
-import com.winlator.star.BuildConfig
 import com.winlator.star.core.ImageUtils
 import com.winlator.star.core.PreloaderDialog
 import com.winlator.star.core.WineThemeManager
@@ -70,12 +71,14 @@ import com.winlator.star.store.SteamMainActivity
 import com.winlator.star.ui.AppDrawerContent
 import com.winlator.star.ui.AppNavGraph
 import com.winlator.star.ui.AppTopBar
+import com.winlator.star.ui.LocalTopBarActions
 import com.winlator.star.ui.PreloaderOverlay
 import com.winlator.star.ui.Screen
 import com.winlator.star.ui.screens.SplashScreen
 import com.winlator.star.ui.screens.SplashViewModel
 import com.winlator.star.ui.theme.AppThemeState
 import com.winlator.star.ui.theme.WinlatorTheme
+import com.winlator.star.ui.topBarActionsState
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -121,6 +124,12 @@ class MainActivity : AppCompatActivity() {
         AppCompatDelegate.setCompatVectorFromResourcesEnabled(true)
         super.onCreate(savedInstanceState)
 
+        // Enable edge-to-edge drawing and hide system bars (Immersive Full Screen)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        insetsController.hide(WindowInsetsCompat.Type.systemBars())
+
         PACKAGE_NAME = applicationContext.packageName
         AppThemeState.init(this)
 
@@ -149,7 +158,6 @@ class MainActivity : AppCompatActivity() {
         if (!editInputControls) {
             val willInstall = splashViewModel.installIfNeeded(this)
             if (!willInstall) {
-                // Already installed — request permissions immediately
                 requestAppPermissions()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
                     showAllFilesDialog.value = true
@@ -161,7 +169,6 @@ class MainActivity : AppCompatActivity() {
                     requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
                 }
             }
-            // If willInstall == true: permissions are requested after user taps Proceed
         }
 
         setContent {
@@ -215,7 +222,6 @@ class MainActivity : AppCompatActivity() {
                         )
                     }
 
-                    // Compose-based preloader overlay — replaces XML PreloaderDialog
                     PreloaderOverlay()
                 }
             }
@@ -239,14 +245,13 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        // Install runs independently now; nothing to do after storage permission result.
     }
 
     private fun requestAppPermissions() {
         val hasWrite = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         val hasRead = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         val storageReady = hasWrite && hasRead || Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-        if (storageReady) return  // Already granted; install was already started separately.
+        if (storageReady) return
 
         requestPermissions(
             arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE),
@@ -254,14 +259,12 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    /** Called by DownloadProgressDialog after a download to re-request permissions if needed. */
     fun doPermissionsFlow() {
         requestAppPermissions()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !android.os.Environment.isExternalStorageManager()) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
             showAllFilesDialog.value = true
         }
     }
-
 
     private fun menuItemIdToRoute(itemId: Int): String? = when (itemId) {
         R.id.main_menu_containers -> Screen.Containers.route
@@ -273,7 +276,6 @@ class MainActivity : AppCompatActivity() {
         else -> null
     }
 }
-
 @Composable
 private fun AppShell(
     startRoute: String,
@@ -296,8 +298,6 @@ private fun AppShell(
     val backstackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backstackEntry?.destination?.route ?: startRoute
 
-    // Clear top bar actions on navigation so stale actions from a previous screen don't persist.
-    // Screens that need actions re-set them via SideEffect on each recomposition.
     androidx.compose.runtime.LaunchedEffect(currentRoute) {
         topBarActionsState.value = {}
     }
@@ -311,59 +311,59 @@ private fun AppShell(
     }
 
     CompositionLocalProvider(LocalTopBarActions provides topBarActionsState) {
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = !editInputControls && !currentRoute.startsWith("container_detail"),
-        drawerContent = {
-            AppDrawerContent(
-                currentRoute = currentRoute,
-                onNavigate = { screen ->
-                    scope.launch { drawerState.close() }
-                    navController.navigate(screen.route) {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                onLaunchStore = { screen ->
-                    scope.launch { drawerState.close() }
-                    onLaunchStore(screen)
-                },
-                onAbout = {
-                    scope.launch { drawerState.close() }
-                    onAboutRequested()
-                },
-            )
-        },
-    ) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                AppTopBar(
-                    title = screenTitle,
-                    showBack = editInputControls,
-                    onNavClick = {
-                        if (editInputControls) {
-                            navController.popBackStack()
-                        } else {
-                            scope.launch {
-                                if (drawerState.isOpen) drawerState.close() else drawerState.open()
-                            }
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = !editInputControls && !currentRoute.startsWith("container_detail"),
+            drawerContent = {
+                AppDrawerContent(
+                    currentRoute = currentRoute,
+                    onNavigate = { screen ->
+                        scope.launch { drawerState.close() }
+                        navController.navigate(screen.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     },
-                    actions = topBarActionsState.value,
+                    onLaunchStore = { screen ->
+                        scope.launch { drawerState.close() }
+                        onLaunchStore(screen)
+                    },
+                    onAbout = {
+                        scope.launch { drawerState.close() }
+                        onAboutRequested()
+                    },
                 )
             },
-        ) { innerPadding ->
-            AppNavGraph(
-                navController = navController,
-                selectedInputProfileId = selectedInputProfileId,
-                startRoute = startRoute,
-                modifier = Modifier.padding(innerPadding),
-            )
+        ) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                topBar = {
+                    AppTopBar(
+                        title = screenTitle,
+                        showBack = editInputControls,
+                        onNavClick = {
+                            if (editInputControls) {
+                                navController.popBackStack()
+                            } else {
+                                scope.launch {
+                                    if (drawerState.isOpen) drawerState.close() else drawerState.open()
+                                }
+                            }
+                        },
+                        actions = topBarActionsState.value,
+                    )
+                },
+            ) { innerPadding ->
+                AppNavGraph(
+                    navController = navController,
+                    selectedInputProfileId = selectedInputProfileId,
+                    startRoute = startRoute,
+                    modifier = Modifier.padding(innerPadding),
+                )
+            }
         }
     }
-    } // end CompositionLocalProvider
 
     if (showAllFilesDialog) {
         AllFilesAccessDialog(
@@ -399,21 +399,20 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = androidx.compose.material3.MaterialTheme.colorScheme.surface,
-            modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth()
         ) {
             Column(
-                modifier = androidx.compose.ui.Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp),
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Logo + name
                 Image(
                     painter = painterResource(R.mipmap.ic_launcher_foreground),
                     contentDescription = null,
-                    modifier = androidx.compose.ui.Modifier.size(72.dp)
+                    modifier = Modifier.size(72.dp)
                 )
                 Text(
                     text = "Star Bionic",
@@ -427,11 +426,10 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     color = com.winlator.star.ui.theme.OnSurfaceVariant
                 )
 
-                Spacer(androidx.compose.ui.Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
                 Divider(color = com.winlator.star.ui.theme.Divider)
-                Spacer(androidx.compose.ui.Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
 
-                // Powered by
                 AboutSection(title = "Powered By") {
                     AboutRow("Wine",    "Windows compatibility layer")
                     AboutRow("Box64",   "x86_64 emulation on ARM")
@@ -439,11 +437,10 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     AboutRow("Turnip",  "Open-source Vulkan driver")
                 }
 
-                Spacer(androidx.compose.ui.Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
                 Divider(color = com.winlator.star.ui.theme.Divider)
-                Spacer(androidx.compose.ui.Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
 
-                // Credits
                 AboutSection(title = "Credits") {
                     AboutRow("brunodev85",      "Winlator — original project")
                     AboutRow("MishaMixXx",      "Winlator Bionic")
@@ -453,10 +450,10 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     AboutRow("Mesa / Freedreno","Turnip Vulkan driver")
                 }
 
-                Spacer(androidx.compose.ui.Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
                 TextButton(
                     onClick = onDismiss,
-                    modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                 ) { Text("Close") }
             }
         }
@@ -465,13 +462,13 @@ private fun AboutDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun AboutSection(title: String, content: @Composable () -> Unit) {
-    Column(modifier = androidx.compose.ui.Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
             text = title,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-            modifier = androidx.compose.ui.Modifier.padding(bottom = 2.dp)
+            modifier = Modifier.padding(bottom = 2.dp)
         )
         content()
     }
@@ -480,11 +477,11 @@ private fun AboutSection(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun AboutRow(name: String, description: String) {
     Row(
-        modifier = androidx.compose.ui.Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface)
-        Spacer(androidx.compose.ui.Modifier.width(8.dp))
+        Spacer(Modifier.width(8.dp))
         Text(text = description, fontSize = 12.sp, color = com.winlator.star.ui.theme.OnSurfaceVariant)
     }
 }
