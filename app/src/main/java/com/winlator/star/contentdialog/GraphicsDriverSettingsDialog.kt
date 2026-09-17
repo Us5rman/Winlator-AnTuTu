@@ -24,38 +24,27 @@ fun GraphicsDriverSettingsDialog(
         GraphicsDriverConfigDialog.parseGraphicsDriverConfig(initialConfig) 
     }
 
-    // Top Header States from your screenshot
+    // Top Header States
     var vulkanVersion by remember { mutableStateOf(parsedConfig["vulkanVersion"] ?: "1.3") }
     var graphicsDriverVersion by remember { mutableStateOf(parsedConfig["graphicsDriverVersion"] ?: "System") }
     var showIncompatibleDrivers by remember { mutableStateOf(parsedConfig["showIncompatibleDrivers"]?.toBoolean() ?: false) }
 
-    // Extensions Dialog visibility & data state
+    // Extensions Dialog visibility & dynamic data parsing
     var showExtensionsDialog by remember { mutableStateOf(false) }
     
-    // Default list matching standard device Vulkan capabilities, or parsed from the config manager if available
-    val extensionsList = remember {
-        listOf(
-            "VK_KHR_copy_commands2",
-            "VK_KHR_dedicated_allocation",
-            "VK_KHR_deferred_host_operations",
-            "VK_KHR_depth_stencil_resolve",
-            "VK_KHR_descriptor_update_template",
-            "VK_KHR_device_group",
-            "VK_KHR_draw_indirect_count",
-            "VK_KHR_driver_properties",
-            "VK_KHR_dynamic_rendering",
-            "VK_EXT_extended_dynamic_state",
-            "VK_EXT_extended_dynamic_state2",
-            "VK_KHR_external_fence",
-            "VK_KHR_external_fence_fd",
-            "VK_KHR_external_memory"
-        )
+    val rawExtensions = parsedConfig["supportedExtensions"] ?: "VK_KHR_copy_commands2,VK_KHR_dedicated_allocation,VK_KHR_deferred_host_operations,VK_KHR_depth_stencil_resolve,VK_KHR_descriptor_update_template,VK_KHR_device_group,VK_KHR_draw_indirect_count,VK_KHR_driver_properties,VK_KHR_dynamic_rendering,VK_EXT_extended_dynamic_state,VK_EXT_extended_dynamic_state2,VK_KHR_external_fence,VK_KHR_external_fence_fd,VK_KHR_external_memory"
+    
+    val extensionsList = remember { 
+        rawExtensions.split(",").map { it.trim() }.filter { it.isNotEmpty() } 
     }
     
-    // Keep track of check states mapped to extension names
     val extensionStates = remember {
         mutableStateMapOf<String, Boolean>().apply {
-            extensionsList.forEach { this[it] = true }
+            val enabledConfig = parsedConfig["enabledExtensions"] ?: ""
+            val enabledSet = enabledConfig.split(",").map { it.trim() }.toSet()
+            extensionsList.forEach { ext ->
+                this[ext] = if (enabledConfig.isEmpty()) true else enabledSet.contains(ext)
+            }
         }
     }
     
@@ -65,10 +54,24 @@ fun GraphicsDriverSettingsDialog(
     // Wrapper & Turnip Config States
     var gpuName by remember { mutableStateOf(parsedConfig["gpuName"] ?: "Device") }
     var maxDeviceMemory by remember { mutableStateOf(parsedConfig["maxDeviceMemory"] ?: "0 (Default)") }
+    
+    // Dropdown selection states
     var presentModes by remember { mutableStateOf(parsedConfig["presentModes"] ?: "mailbox") }
+    var expandedPresentModes by remember { mutableStateOf(false) }
+    val presentModesList = listOf("mailbox", "fifo", "immediate", "relaxed")
+
     var memoryResourceType by remember { mutableStateOf(parsedConfig["memoryResourceType"] ?: "auto") }
+    var expandedMemoryResource by remember { mutableStateOf(false) }
+    val memoryResourceList = listOf("auto", "buffer", "image", "linear")
+
     var bcnEmulation by remember { mutableStateOf(parsedConfig["bcnEmulation"] ?: "auto") }
+    var expandedBcnEmulation by remember { mutableStateOf(false) }
+    val bcnEmulationList = listOf("auto", "on", "off")
+
     var bcnEmulationType by remember { mutableStateOf(parsedConfig["bcnEmulationType"] ?: "compute") }
+    var expandedBcnType by remember { mutableStateOf(false) }
+    val bcnEmulationTypeList = listOf("compute", "software")
+
     var bcnEmulationCache by remember { mutableStateOf(parsedConfig["bcnEmulationCache"] ?: "0") }
     
     var syncEveryFrame by remember { mutableStateOf(parsedConfig["syncEveryFrame"]?.toBoolean() ?: false) }
@@ -157,37 +160,125 @@ fun GraphicsDriverSettingsDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Present Modes field
-                OutlinedTextField(
-                    value = presentModes,
-                    onValueChange = { presentModes = it },
-                    label = { Text("Present Modes") },
+                // Present Modes Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedPresentModes,
+                    onExpandedChange = { expandedPresentModes = !expandedPresentModes },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = presentModes,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Present Modes") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedPresentModes) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedPresentModes,
+                        onDismissRequest = { expandedPresentModes = false }
+                    ) {
+                        presentModesList.forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(mode) },
+                                onClick = {
+                                    presentModes = mode
+                                    expandedPresentModes = false
+                                }
+                            )
+                        }
+                    }
+                }
 
-                // Memory Resource Type field
-                OutlinedTextField(
-                    value = memoryResourceType,
-                    onValueChange = { memoryResourceType = it },
-                    label = { Text("Memory Resource Type") },
+                // Memory Resource Type Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedMemoryResource,
+                    onExpandedChange = { expandedMemoryResource = !expandedMemoryResource },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = memoryResourceType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Memory Resource Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedMemoryResource) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedMemoryResource,
+                        onDismissRequest = { expandedMemoryResource = false }
+                    ) {
+                        memoryResourceList.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type) },
+                                onClick = {
+                                    memoryResourceType = type
+                                    expandedMemoryResource = false
+                                }
+                            )
+                        }
+                    }
+                }
 
-                // BCn Emulation field
-                OutlinedTextField(
-                    value = bcnEmulation,
-                    onValueChange = { bcnEmulation = it },
-                    label = { Text("BCn Emulation") },
+                // BCn Emulation Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedBcnEmulation,
+                    onExpandedChange = { expandedBcnEmulation = !expandedBcnEmulation },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = bcnEmulation,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("BCn Emulation") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedBcnEmulation) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedBcnEmulation,
+                        onDismissRequest = { expandedBcnEmulation = false }
+                    ) {
+                        bcnEmulationList.forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(mode) },
+                                onClick = {
+                                    bcnEmulation = mode
+                                    expandedBcnEmulation = false
+                                }
+                            )
+                        }
+                    }
+                }
 
-                // BCn Emulation Type field
-                OutlinedTextField(
-                    value = bcnEmulationType,
-                    onValueChange = { bcnEmulationType = it },
-                    label = { Text("BCn Emulation Type") },
+                // BCn Emulation Type Dropdown (Compute / Software)
+                ExposedDropdownMenuBox(
+                    expanded = expandedBcnType,
+                    onExpandedChange = { expandedBcnType = !expandedBcnType },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = bcnEmulationType,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("BCn Emulation Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedBcnType) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedBcnType,
+                        onDismissRequest = { expandedBcnType = false }
+                    ) {
+                        bcnEmulationTypeList.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type) },
+                                onClick = {
+                                    bcnEmulationType = type
+                                    expandedBcnType = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 Divider(modifier = Modifier.padding(vertical = 4.dp))
                 Text("Toggles & Fixes", style = MaterialTheme.typography.titleSmall)
@@ -309,6 +400,8 @@ fun GraphicsDriverSettingsDialog(
                     else -> "6x6"
                 }
 
+                parsedConfig["enabledExtensions"] = extensionStates.filter { it.value }.keys.joinToString(",")
+
                 val finalConfigString = GraphicsDriverConfigDialog.toGraphicsDriverConfig(parsedConfig)
                 onConfirm(finalConfigString)
             }) {
@@ -322,7 +415,7 @@ fun GraphicsDriverSettingsDialog(
         }
     )
 
-    // Secondary Sub-Dialog for Extension Toggles (Matches your screenshot checklist UI)
+    // Secondary Sub-Dialog for Extension Toggles
     if (showExtensionsDialog) {
         AlertDialog(
             onDismissRequest = { showExtensionsDialog = false },
