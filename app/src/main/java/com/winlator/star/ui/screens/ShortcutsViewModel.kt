@@ -352,11 +352,6 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         return result
     }
 
-    /**
-     * Duplicates [shortcut]'s .desktop file under [newName] inside the same container's
-     * desktop dir (used by the "Clone" dialog in ShortcutsScreen.kt, which lets the user
-     * pick a new name rather than a destination container).
-     */
     fun cloneShortcut(shortcut: Shortcut, newName: String, context: Context): Boolean {
         val trimmed = newName.trim()
         if (trimmed.isEmpty()) return false
@@ -387,11 +382,6 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Called after the shortcut settings dialog saves changes. The individual field
-     * setters on Shortcut (iconPath, extraArgs, etc.) already persist themselves via
-     * saveData(), so this just needs to refresh state so the UI recomposes.
-     */
     fun updateShortcut(shortcut: Shortcut, context: Context) {
         refresh()
     }
