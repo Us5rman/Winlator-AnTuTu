@@ -1,15 +1,19 @@
 package com.winlator.star.ui.screens
 
+import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ShortcutManager
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.util.Log
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.AndroidViewModel
+import com.winlator.star.XServerDisplayActivity
 import com.winlator.star.container.Container
 import com.winlator.star.container.ContainerManager
 import com.winlator.star.container.Shortcut
@@ -21,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileWriter
 import java.io.IOException
 import java.util.Collections
 
@@ -57,7 +62,7 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
-    private val manager = ContainerManager(app)
+    val manager = ContainerManager(app)
 
     init {
         refresh()
@@ -71,6 +76,53 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
     fun setGridView(grid: Boolean) {
         _isGridView.value = grid
         prefs.edit().putBoolean("is_grid_view", grid).apply()
+    }
+
+    fun toggleGridView() {
+        setGridView(!_isGridView.value)
+    }
+
+    fun getContainers(): List<Container> = manager.getContainers().toList()
+
+    fun getContainerById(id: Int): Container? {
+        return getContainers().find { it.id == id }
+    }
+
+    fun refresh() {
+        val raw = manager.loadShortcuts()
+        _shortcuts.value = raw.filter { it != null && it.file != null && it.file.name.isNotEmpty() }
+    }
+
+    fun launchShortcut(shortcut: Shortcut, activity: Activity) {
+        try {
+            val intent = Intent(activity, XServerDisplayActivity::class.java).apply {
+                putExtra("shortcut_path", shortcut.file.absolutePath)
+                if (shortcut.container != null) {
+                    putExtra("container_id", shortcut.container.id)
+                }
+            }
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch shortcut: ${shortcut.name}", e)
+            Toast.makeText(activity, "Failed to launch shortcut", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun createShortcutsForFiles(containerId: Int, files: List<File>, context: Context): Int {
+        val containers = getContainers()
+        val container = containers.find { it.id == containerId } ?: return 0
+        var count = 0
+        files.forEach { file ->
+            val displayName = file.nameWithoutExtension
+            try {
+                writeExeShortcut(container, file, displayName)
+                count++
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create shortcut for ${file.name}", e)
+            }
+        }
+        refresh()
+        return count
     }
 
     fun importShortcut(containerIndex: Int, uri: Uri, context: Context): ImportResult {
@@ -102,8 +154,7 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         return try {
             val shortcutFile = writeExeShortcut(container, exeFile, displayName)
             refresh()
-            // Cover art on a background thread — SteamGridDB lookup involves network I/O.
-            // Fallback chain: store URL (none here) → SGDB → PE icon extraction from the EXE.
+
             val safeName = shortcutFile.nameWithoutExtension
             val appCtx = context.applicationContext
             Thread({
@@ -111,7 +162,6 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
                     StarLaunchBridge.saveCoverArt(appCtx, container, shortcutFile, safeName, null)
                     val iconFile = container.getIconsDir(64)?.let { File(it, "$safeName.png") }
                     if (iconFile == null || !iconFile.exists()) {
-                        // SGDB miss — try extracting an icon from the EXE itself.
                         ExeIconExtractor.extract(exeFile)?.let { bmp ->
                             container.getIconsDir(64)?.let { iconsDir ->
                                 if (!iconsDir.exists()) iconsDir.mkdirs()
@@ -142,7 +192,7 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         uri: Uri,
         sourceName: String,
         ext: String,
-        context: Context,
+        context: Context
     ): ImportResult {
         val destDir = container.getDesktopDir()
         if (!destDir.exists()) destDir.mkdirs()
@@ -172,9 +222,7 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         val safeName = displayName.replace(Regex("""[\\/:*?"<>|]"""), "_").trim().ifEmpty { "game" }
         val shortcutFile = File(desktopDir, "$safeName.desktop")
 
-        // Resolve to a Wine drive letter against the container's mount map.
         val winPath = resolveWindowsPath(container, exeFile.absolutePath)
-        // 4-backslash separators per Winlator's two-pass StringUtils.unescape().
         val escaped = winPath.replace("\\", "\\\\\\\\")
         val content = buildString {
             append("[Desktop Entry]\n")
@@ -261,32 +309,23 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun refresh() {
-        val raw = manager.loadShortcuts()
-        _shortcuts.value = raw.filter { it != null && it.file != null && it.file.name.isNotEmpty() }
-    }
-
-    fun remove(shortcut: Shortcut, context: Context): Boolean {
+    fun removeShortcut(shortcut: Shortcut, context: Context): Boolean {
+        disableOnScreen(context, shortcut)
         val deleted = shortcut.file.delete()
         val lnkPath = shortcut.file.path.substringBeforeLast('.') + ".lnk"
         val lnk = File(lnkPath)
         if (lnk.exists()) lnk.delete()
-        if (deleted) {
-            disableOnScreen(context, shortcut)
-            refresh()
+        if (!shortcut.iconPath.isNullOrEmpty()) {
+            val iconFile = File(shortcut.iconPath)
+            if (iconFile.exists()) iconFile.delete()
         }
+        refresh()
         return deleted
     }
 
-    fun cloneToContainer(shortcut: Shortcut, containerIndex: Int): Boolean {
-        val containers = manager.getContainers()
-        if (containerIndex >= containers.size) return false
-        val result = shortcut.cloneToContainer(containers[containerIndex])
-        if (result) refresh()
-        return result
+    fun finalizeImportName(containerIndex: Int, newName: String, context: Context) {
+        refresh()
     }
-
-    fun containers(): List<Container> = manager.getContainers()
 
     fun renameImportedShortcut(containerIndex: Int, oldName: String, newName: String) {
         if (oldName == newName || newName.isBlank()) return
@@ -304,17 +343,29 @@ class ShortcutsViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun cloneToContainer(shortcut: Shortcut, containerIndex: Int): Boolean {
+        val containers = manager.getContainers()
+        if (containerIndex >= containers.size) return false
+        val result = shortcut.cloneToContainer(containers[containerIndex])
+        if (result) refresh()
+        return result
+    }
+
     companion object {
         private const val TAG = "ShortcutsImport"
 
         fun disableOnScreen(context: Context, shortcut: Shortcut) {
             try {
                 val sm = ContextCompat.getSystemService(context, ShortcutManager::class.java)
+                val extraUuid = try { shortcut.getExtra("uuid") } catch (_: Exception) { null }
+                val targetId = if (!extraUuid.isNullOrEmpty()) extraUuid else shortcut.file.name
                 sm?.disableShortcuts(
-                    Collections.singletonList(shortcut.getExtra("uuid")),
-                    context.getString(com.winlator.star.R.string.shortcut_not_available),
+                    Collections.singletonList(targetId),
+                    context.getString(com.winlator.star.R.string.shortcut_not_available)
                 )
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to disable pin shortcut: ${shortcut.name}", e)
+            }
         }
     }
 }
