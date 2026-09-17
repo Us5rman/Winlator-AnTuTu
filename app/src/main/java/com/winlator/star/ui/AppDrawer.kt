@@ -102,11 +102,21 @@ fun AppDrawerContent(
                 modifier = Modifier.size(48.dp),
             )
             Spacer(Modifier.width(12.dp))
-            Text(
-                text = "Star Bionic",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Winlator",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Blue,
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "AnTuTu",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.Red,
+                )
+            }
         }
 
         Divider(color = DividerColor)
@@ -122,6 +132,7 @@ fun AppDrawerContent(
         DrawerItem(Screen.InputControls, currentRoute, onNavigate)
         DrawerItem(Screen.AdrenoTools,   currentRoute, onNavigate)
         DrawerItem(Screen.Contents,      currentRoute, onNavigate)
+        DrawerItem(Screen.FileManager,   currentRoute, onNavigate)
         DrawerItem(Screen.Saves,         currentRoute, onNavigate)
         DrawerItem(Screen.LsfgSettings,  currentRoute, onNavigate)
 
