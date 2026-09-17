@@ -6,6 +6,7 @@ import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import com.winlator.star.container.Container
 import com.winlator.star.container.ContainerManager
+import com.winlator.star.ui.screens.ShortcutsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
