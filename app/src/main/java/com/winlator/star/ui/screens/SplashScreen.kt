@@ -88,15 +88,16 @@ fun SplashScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(horizontal = 48.dp),
         ) {
+            // Increased container size to 220.dp and icon size to 200.dp
             Box(
-                modifier = Modifier.size(160.dp),
+                modifier = Modifier.size(220.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
                     painter = painterResource(R.mipmap.ic_launcher_foreground),
                     contentDescription = null,
                     modifier = Modifier
-                        .size(140.dp)
+                        .size(200.dp)
                         .scale(logoScale),
                 )
             }
