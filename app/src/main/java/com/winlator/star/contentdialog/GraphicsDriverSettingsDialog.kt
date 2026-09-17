@@ -1,10 +1,9 @@
 package com.winlator.star.contentdialog
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -14,7 +13,45 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
+import java.io.File
 
+/**
+ * Checks if the underlying device uses an Adreno GPU by inspecting device properties.
+ */
+private fun isAdrenoGpu(): Boolean {
+    val hardware = Build.HARDWARE.lowercase()
+    val board = Build.BOARD.lowercase()
+    val fingerprint = Build.FINGERPRINT.lowercase()
+    return hardware.contains("qcom") || hardware.contains("adreno") ||
+            board.contains("qcom") || fingerprint.contains("qcom")
+}
+
+/**
+ * Dynamically loads installed custom drivers from app storage (e.g., PanVK or installed .so/zip files).
+ */
+private fun getInstalledCustomDrivers(context: Context): List<String> {
+    val installedList = mutableListOf<String>()
+    
+    // Check internal app files directory where custom drivers/adrenotools are unpacked
+    val driversDir = File(context.filesDir, "imagefs/usr/lib")
+    if (driversDir.exists()) {
+        driversDir.listFiles()?.forEach { file ->
+            if (file.name.contains("vulkan", ignoreCase = true) || file.name.contains("panvk", ignoreCase = true)) {
+                installedList.add(file.nameWithoutExtension)
+            }
+        }
+    }
+
+    // Check shared custom drivers folder
+    val customDriversDir = File(context.filesDir, "custom_drivers")
+    if (customDriversDir.exists()) {
+        customDriversDir.listFiles()?.forEach { file ->
+            installedList.add(file.name)
+        }
+    }
+
+    return installedList.distinct()
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GraphicsDriverSettingsDialog(
@@ -32,11 +69,32 @@ fun GraphicsDriverSettingsDialog(
     var expandedVulkanDropdown by remember { mutableStateOf(false) }
     val vulkanVersionList = listOf("1.0", "1.1", "1.2", "1.3", "1.4")
 
-    var graphicsDriverVersion by remember { mutableStateOf(parsedConfig["graphicsDriverVersion"] ?: "System") }
-    var expandedDriverVersionDropdown by remember { mutableStateOf(false) }
-    val driverVersionList = listOf("System", "Turnip", "Custom")
-
     var showIncompatibleDrivers by remember { mutableStateOf(parsedConfig["showIncompatibleDrivers"]?.toBoolean() ?: false) }
+
+    // Dynamic driver list generation
+    val isAdreno = remember { isAdrenoGpu() }
+    val installedCustomDrivers = remember { getInstalledCustomDrivers(context) }
+
+    val driverVersionList = remember(showIncompatibleDrivers, isAdreno, installedCustomDrivers) {
+        val list = mutableListOf("System")
+
+        // Add v819 and turnip-sdk36 for Adreno devices OR when "Show incompatible drivers" is checked
+        if (isAdreno || showIncompatibleDrivers) {
+            list.add("v819")
+            list.add("turnip-sdk36")
+        }
+
+        // Dynamically add all installed custom driver files found on the system
+        list.addAll(installedCustomDrivers)
+        list.distinct()
+    }
+
+    var graphicsDriverVersion by remember { 
+        mutableStateOf(
+            parsedConfig["graphicsDriverVersion"]?.takeIf { driverVersionList.contains(it) } ?: "System"
+        ) 
+    }
+    var expandedDriverVersionDropdown by remember { mutableStateOf(false) }
 
     val rawExtensions = parsedConfig["supportedExtensions"] ?: "VK_KHR_copy_commands2,VK_KHR_dedicated_allocation,VK_KHR_deferred_host_operations,VK_KHR_depth_stencil_resolve,VK_KHR_descriptor_update_template,VK_KHR_device_group,VK_KHR_draw_indirect_count,VK_KHR_driver_properties,VK_KHR_dynamic_rendering,VK_EXT_extended_dynamic_state,VK_EXT_extended_dynamic_state2,VK_KHR_external_fence,VK_KHR_external_fence_fd,VK_KHR_external_memory"
     
@@ -110,7 +168,6 @@ fun GraphicsDriverSettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Vulkan Version Dropdown
                 ExposedDropdownMenuBox(
                     expanded = expandedVulkanDropdown,
                     onExpandedChange = { expandedVulkanDropdown = !expandedVulkanDropdown },
