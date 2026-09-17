@@ -29,11 +29,15 @@ fun GraphicsDriverSettingsDialog(
     }
 
     var vulkanVersion by remember { mutableStateOf(parsedConfig["vulkanVersion"] ?: "1.3") }
+    var expandedVulkanDropdown by remember { mutableStateOf(false) }
+    val vulkanVersionList = listOf("1.0", "1.1", "1.2", "1.3", "1.4")
+
     var graphicsDriverVersion by remember { mutableStateOf(parsedConfig["graphicsDriverVersion"] ?: "System") }
+    var expandedDriverVersionDropdown by remember { mutableStateOf(false) }
+    val driverVersionList = listOf("System", "Turnip", "Custom")
+
     var showIncompatibleDrivers by remember { mutableStateOf(parsedConfig["showIncompatibleDrivers"]?.toBoolean() ?: false) }
 
-    var showExtensionsDialog by remember { mutableStateOf(false) }
-    
     val rawExtensions = parsedConfig["supportedExtensions"] ?: "VK_KHR_copy_commands2,VK_KHR_dedicated_allocation,VK_KHR_deferred_host_operations,VK_KHR_depth_stencil_resolve,VK_KHR_descriptor_update_template,VK_KHR_device_group,VK_KHR_draw_indirect_count,VK_KHR_driver_properties,VK_KHR_dynamic_rendering,VK_EXT_extended_dynamic_state,VK_EXT_extended_dynamic_state2,VK_KHR_external_fence,VK_KHR_external_fence_fd,VK_KHR_external_memory"
     
     val extensionsList = remember { 
@@ -49,9 +53,6 @@ fun GraphicsDriverSettingsDialog(
             }
         }
     }
-    
-    val enabledCount = extensionStates.values.count { it }
-    val totalCount = extensionsList.size
 
     val gpuCardsList = remember { loadGpuCardsFromAssets(context) }
     var gpuName by remember { mutableStateOf(parsedConfig["gpuName"] ?: "Device") }
@@ -109,19 +110,65 @@ fun GraphicsDriverSettingsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
-                    value = vulkanVersion,
-                    onValueChange = { vulkanVersion = it },
-                    label = { Text("Vulkan Version") },
+                // Vulkan Version Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedVulkanDropdown,
+                    onExpandedChange = { expandedVulkanDropdown = !expandedVulkanDropdown },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = vulkanVersion,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Vulkan Version") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVulkanDropdown) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedVulkanDropdown,
+                        onDismissRequest = { expandedVulkanDropdown = false }
+                    ) {
+                        vulkanVersionList.forEach { version ->
+                            DropdownMenuItem(
+                                text = { Text(version) },
+                                onClick = {
+                                    vulkanVersion = version
+                                    expandedVulkanDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
 
-                OutlinedTextField(
-                    value = graphicsDriverVersion,
-                    onValueChange = { graphicsDriverVersion = it },
-                    label = { Text("Graphics Driver Version") },
+                // Graphics Driver Version Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expandedDriverVersionDropdown,
+                    onExpandedChange = { expandedDriverVersionDropdown = !expandedDriverVersionDropdown },
                     modifier = Modifier.fillMaxWidth()
-                )
+                ) {
+                    OutlinedTextField(
+                        value = graphicsDriverVersion,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Graphics Driver Version") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDriverVersionDropdown) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedDriverVersionDropdown,
+                        onDismissRequest = { expandedDriverVersionDropdown = false }
+                    ) {
+                        driverVersionList.forEach { driver ->
+                            DropdownMenuItem(
+                                text = { Text(driver) },
+                                onClick = {
+                                    graphicsDriverVersion = driver
+                                    expandedDriverVersionDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -130,13 +177,6 @@ fun GraphicsDriverSettingsDialog(
                     Checkbox(checked = showIncompatibleDrivers, onCheckedChange = { showIncompatibleDrivers = it })
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Show incompatible drivers")
-                }
-
-                OutlinedButton(
-                    onClick = { showExtensionsDialog = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Available Extensions ($enabledCount/$totalCount)")
                 }
 
                 Divider(modifier = Modifier.padding(vertical = 4.dp))
@@ -169,7 +209,8 @@ fun GraphicsDriverSettingsDialog(
                         }
                     }
                 }
-                                OutlinedTextField(
+
+                OutlinedTextField(
                     value = maxDeviceMemory,
                     onValueChange = { maxDeviceMemory = it },
                     label = { Text("Max Device Memory") },
@@ -419,45 +460,6 @@ fun GraphicsDriverSettingsDialog(
             }
         }
     )
-
-    if (showExtensionsDialog) {
-        AlertDialog(
-            onDismissRequest = { showExtensionsDialog = false },
-            title = { Text("Available Extensions") },
-            text = {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(320.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(extensionsList) { ext ->
-                        val isChecked = extensionStates[ext] ?: true
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { extensionStates[ext] = !isChecked }
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = { checked -> extensionStates[ext] = checked }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = ext, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showExtensionsDialog = false }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExtensionsDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
 }
 
 private fun loadGpuCardsFromAssets(context: Context): List<String> {
@@ -475,7 +477,6 @@ private fun loadGpuCardsFromAssets(context: Context): List<String> {
             }
         }
     } catch (e: Exception) {
-        // Fallback if the asset file fails to read
         list.add("NVIDIA RIVA 128")
     }
     return list
