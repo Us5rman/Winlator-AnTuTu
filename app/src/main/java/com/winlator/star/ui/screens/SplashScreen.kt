@@ -181,8 +181,12 @@ fun GradientButton(
     }
 }
 
+/**
+ * Not private: reused by FileManagerScreen.kt for its own copy/extract/compress
+ * progress overlay, so both screens share one gradient progress bar implementation.
+ */
 @Composable
-private fun GlowingProgressBar(
+fun GlowingProgressBar(
     progress: Float,
     shimmerPos: Float,
     isComplete: Boolean,
