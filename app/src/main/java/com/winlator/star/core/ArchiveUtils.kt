@@ -55,19 +55,26 @@ enum class CompressionLevel(val label: String, val deflaterLevel: Int) {
 
 data class ArchiveProgress(val currentEntryName: String, val entriesDone: Int, val totalEntries: Int)
 
+/** Distinguishes a genuine failure from a user-requested cancel, so callers can react differently. */
+enum class ArchiveResult { SUCCESS, FAILED, CANCELLED }
+
 object ArchiveUtils {
 
     /**
      * Compress [sources] into a single ZIP archive at [destination] using [level].
      * Directories are added recursively with paths relative to each source's parent.
+     *
+     * [onProgress], if provided, is invoked before each entry and must return `true` to
+     * continue or `false` to cancel — this is checked cooperatively between entries, since
+     * coroutine cancellation alone cannot interrupt this blocking loop.
      */
     fun compressToZip(
         sources: List<File>,
         destination: File,
         level: CompressionLevel,
-        onProgress: ((ArchiveProgress) -> Unit)? = null
-    ): Boolean {
-        return try {
+        onProgress: ((ArchiveProgress) -> Boolean)? = null
+    ): ArchiveResult {
+        try {
             val allFiles = mutableListOf<Pair<File, String>>()
             for (src in sources) collectFiles(src, src.parentFile ?: src, allFiles)
 
@@ -78,8 +85,13 @@ object ArchiveUtils {
                     zos.setMethod(ZipOutputStream.STORED)
                 }
 
-                allFiles.forEachIndexed { index, (file, relativePath) ->
-                    onProgress?.invoke(ArchiveProgress(relativePath, index, allFiles.size))
+                for (index in allFiles.indices) {
+                    val (file, relativePath) = allFiles[index]
+                    val shouldContinue = onProgress?.invoke(ArchiveProgress(relativePath, index, allFiles.size)) ?: true
+                    if (!shouldContinue) {
+                        destination.delete()
+                        return ArchiveResult.CANCELLED
+                    }
 
                     val entryName = if (file.isDirectory) "$relativePath/" else relativePath
                     val entry = ZipEntry(entryName)
@@ -98,10 +110,10 @@ object ArchiveUtils {
                     zos.closeEntry()
                 }
             }
-            true
+            return ArchiveResult.SUCCESS
         } catch (e: Exception) {
             destination.delete()
-            false
+            return ArchiveResult.FAILED
         }
     }
 
@@ -125,9 +137,13 @@ object ArchiveUtils {
 
     /**
      * Extract [archive] into [destinationDir], auto-detecting format from the file name.
-     * Returns true on success. RAR support is limited to RAR4 and older (junrar has no RAR5 decoder).
+     * RAR support is limited to RAR4 and older (junrar has no RAR5 decoder) and cannot report
+     * progress or be cancelled mid-way — it's all-or-nothing.
+     *
+     * [onProgress], if provided, is invoked before each entry and must return `true` to
+     * continue or `false` to cancel.
      */
-    fun extract(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Unit)? = null): Boolean {
+    fun extract(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Boolean)? = null): ArchiveResult {
         if (!destinationDir.exists()) destinationDir.mkdirs()
 
         return try {
@@ -139,19 +155,21 @@ object ArchiveUtils {
                 ArchiveFormat.TAR_ZST -> extractTarZst(archive, destinationDir, onProgress)
                 ArchiveFormat.SEVEN_ZIP -> extractSevenZip(archive, destinationDir, onProgress)
                 ArchiveFormat.RAR -> extractRar(archive, destinationDir)
-                ArchiveFormat.UNKNOWN -> false
+                ArchiveFormat.UNKNOWN -> ArchiveResult.FAILED
             }
         } catch (e: Exception) {
-            false
+            ArchiveResult.FAILED
         }
     }
 
-    private fun extractZip(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Unit)?): Boolean {
+    private fun extractZip(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Boolean)?): ArchiveResult {
         ZipFile(archive).use { zip ->
             val entries = zip.entries().toList()
-            entries.forEachIndexed { index, entry ->
-                onProgress?.invoke(ArchiveProgress(entry.name, index, entries.size))
-                val outFile = safeDestination(destinationDir, entry.name) ?: return@forEachIndexed
+            for (index in entries.indices) {
+                val entry = entries[index]
+                val shouldContinue = onProgress?.invoke(ArchiveProgress(entry.name, index, entries.size)) ?: true
+                if (!shouldContinue) return ArchiveResult.CANCELLED
+                val outFile = safeDestination(destinationDir, entry.name) ?: continue
                 if (entry.isDirectory) {
                     outFile.mkdirs()
                 } else {
@@ -162,16 +180,17 @@ object ArchiveUtils {
                 }
             }
         }
-        return true
+        return ArchiveResult.SUCCESS
     }
 
-    private fun extractTar(rawInput: java.io.InputStream, destinationDir: File, onProgress: ((ArchiveProgress) -> Unit)?): Boolean {
+    private fun extractTar(rawInput: java.io.InputStream, destinationDir: File, onProgress: ((ArchiveProgress) -> Boolean)?): ArchiveResult {
         TarArchiveInputStream(BufferedInputStream(rawInput)).use { tar ->
             var entry: TarArchiveEntry?
             var count = 0
             while (tar.nextTarEntry.also { entry = it } != null) {
                 val e = entry ?: continue
-                onProgress?.invoke(ArchiveProgress(e.name, count++, -1))
+                val shouldContinue = onProgress?.invoke(ArchiveProgress(e.name, count++, -1)) ?: true
+                if (!shouldContinue) return ArchiveResult.CANCELLED
                 val outFile = safeDestination(destinationDir, e.name) ?: continue
                 if (e.isDirectory) {
                     outFile.mkdirs()
@@ -181,23 +200,24 @@ object ArchiveUtils {
                 }
             }
         }
-        return true
+        return ArchiveResult.SUCCESS
     }
 
-    private fun extractTarZst(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Unit)?): Boolean {
+    private fun extractTarZst(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Boolean)?): ArchiveResult {
         // Matches TarCompressorUtils' approach: commons-compress' zstandard package,
         // which wraps zstd-jni internally — no direct zstd-jni API usage needed here.
         val zstdInput = ZstdCompressorInputStream(BufferedInputStream(FileInputStream(archive)))
         return extractTar(zstdInput, destinationDir, onProgress)
     }
 
-    private fun extractSevenZip(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Unit)?): Boolean {
+    private fun extractSevenZip(archive: File, destinationDir: File, onProgress: ((ArchiveProgress) -> Boolean)?): ArchiveResult {
         SevenZFile(archive).use { sevenZ ->
             var entry: ArchiveEntry?
             var count = 0
             while (sevenZ.nextEntry.also { entry = it } != null) {
                 val e = entry ?: continue
-                onProgress?.invoke(ArchiveProgress(e.name, count++, -1))
+                val shouldContinue = onProgress?.invoke(ArchiveProgress(e.name, count++, -1)) ?: true
+                if (!shouldContinue) return ArchiveResult.CANCELLED
                 val outFile = safeDestination(destinationDir, e.name) ?: continue
                 if (e.isDirectory) {
                     outFile.mkdirs()
@@ -211,13 +231,13 @@ object ArchiveUtils {
                 }
             }
         }
-        return true
+        return ArchiveResult.SUCCESS
     }
 
-    /** RAR4 and older only — junrar has no RAR5 decoder. */
-    private fun extractRar(archive: File, destinationDir: File): Boolean {
+    /** RAR4 and older only — junrar has no RAR5 decoder. No progress or cancellation support. */
+    private fun extractRar(archive: File, destinationDir: File): ArchiveResult {
         Junrar.extract(archive, destinationDir)
-        return true
+        return ArchiveResult.SUCCESS
     }
 
     /** Prevents zip-slip path traversal (entries like "../../evil") from escaping destinationDir. */
