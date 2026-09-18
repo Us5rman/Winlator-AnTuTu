@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -38,6 +38,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -134,19 +136,48 @@ fun SplashScreen(
             ) {
                 Column {
                     Spacer(Modifier.height(32.dp))
-                    Button(
+                    GradientButton(
+                        text = "Proceed",
                         onClick = onProceed,
-                        colors  = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        shape   = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Proceed", color = Color.White, fontWeight = FontWeight.SemiBold)
-                    }
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * A button filled with the same blue -> purple -> red gradient family used by the
+ * progress bar, instead of a flat theme color. Reusable wherever we want that look
+ * (splash screen "Proceed", file manager "OK" button, etc).
+ */
+@Composable
+fun GradientButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val cyanColor = Color(0xFF00E5FF)
+    val blueColor = Color(0xFF2979FF)
+    val blendedColor = Color(0xFF8000FF)
+    val magentaColor = Color(0xFFD500F9)
+    val redColor = Color(0xFFFF0055)
+
+    Box(
+        modifier = modifier
+            .height(48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(cyanColor, blueColor, blendedColor, magentaColor, redColor),
+                ),
+            )
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, color = Color.White, fontWeight = FontWeight.SemiBold)
     }
 }
 
