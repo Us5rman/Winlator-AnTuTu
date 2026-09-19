@@ -37,6 +37,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -118,7 +119,7 @@ fun SplashScreen(
                 progress    = displayedProgress / 100f,
                 shimmerPos  = shimmerPos,
                 isComplete  = progress >= 100,
-                modifier    = Modifier.fillMaxWidth().height(8.dp),
+                modifier    = Modifier.fillMaxWidth().height(16.dp),
             )
 
             Spacer(Modifier.height(12.dp))
@@ -148,9 +149,77 @@ fun SplashScreen(
 }
 
 /**
- * A button filled with the same blue -> purple -> red gradient family used by the
- * progress bar, instead of a flat theme color. Reusable wherever we want that look
- * (splash screen "Proceed", file manager "OK" button, etc).
+ * The physically-correct blue/red mixing ramp, used by both the button and the progress
+ * bar: ten shades of blue (deep -> bright) darkening into the middle, ten shades of red
+ * (bright -> deep) picking up on the way out, and — instead of ever crossing through
+ * purple/violet — the middle third blends each side toward white, the way overlapping
+ * blue and red LIGHT actually mixes (additive mixing), not the way blue and red PAINT
+ * mixes (subtractive, which is what gives you purple). That's the "real colors mixing"
+ * look: light, airy, near-white in the center, not a magenta smear.
+ */
+private val BLUE_RAMP = listOf(
+    Color(0xFF001B44), // deep navy
+    Color(0xFF00297A),
+    Color(0xFF0039A6),
+    Color(0xFF0050C8),
+    Color(0xFF0072CE), // Winlator blue
+    Color(0xFF1E90E8),
+    Color(0xFF42A9F5),
+    Color(0xFF6FC2FF),
+    Color(0xFF9DD6FF),
+    Color(0xFFCDEBFF), // pale, almost-white blue
+)
+
+private val RED_RAMP = listOf(
+    Color(0xFFFFD9D2), // pale, almost-white red
+    Color(0xFFFFB3A1),
+    Color(0xFFFF8A70),
+    Color(0xFFFF6347),
+    Color(0xFFFF3B1F),
+    Color(0xFFE8280F),
+    Color(0xFFD01B0A),
+    Color(0xFFB01206),
+    Color(0xFF8C0C03),
+    Color(0xFF6B0801), // deep, near-black red
+)
+
+private val WHITE_HOT = Color(0xFFFFFFFF)
+
+/**
+ * Samples the full ramp at [t] in 0f..1f. First third runs through BLUE_RAMP (dark to
+ * light), middle third blends the lightest blue up through near-white and back down into
+ * the lightest red (additive-mixing look, no purple), final third runs through RED_RAMP
+ * (light to dark).
+ */
+private fun mixedRampColor(t: Float): Color {
+    val clamped = t.coerceIn(0f, 1f)
+    return when {
+        clamped < 0.4f -> {
+            val local = clamped / 0.4f * (BLUE_RAMP.size - 1)
+            val i = local.toInt().coerceIn(0, BLUE_RAMP.size - 2)
+            lerp(BLUE_RAMP[i], BLUE_RAMP[i + 1], local - i)
+        }
+        clamped < 0.6f -> {
+            // The "mixing" zone: lightest blue -> white -> lightest red. This is what
+            // stands in for two colors of light overlapping instead of two paints.
+            val local = (clamped - 0.4f) / 0.2f
+            if (local < 0.5f) {
+                lerp(BLUE_RAMP.last(), WHITE_HOT, local / 0.5f)
+            } else {
+                lerp(WHITE_HOT, RED_RAMP.first(), (local - 0.5f) / 0.5f)
+            }
+        }
+        else -> {
+            val local = (clamped - 0.6f) / 0.4f * (RED_RAMP.size - 1)
+            val i = local.toInt().coerceIn(0, RED_RAMP.size - 2)
+            lerp(RED_RAMP[i], RED_RAMP[i + 1], local - i)
+        }
+    }
+}
+
+/**
+ * A button that continuously cycles through the same blue -> white-mix -> red ramp as
+ * the progress bar, instead of a flat theme color or a static gradient.
  */
 @Composable
 fun GradientButton(
@@ -159,19 +228,28 @@ fun GradientButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val cyanColor = Color(0xFF00E5FF)
-    val blueColor = Color(0xFF2979FF)
-    val blendedColor = Color(0xFF8000FF)
-    val magentaColor = Color(0xFFD500F9)
-    val redColor = Color(0xFFFF0055)
+    val infiniteTransition = rememberInfiniteTransition(label = "gradientButton")
+    val cyclePos by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "gradientButtonCycle",
+    )
 
     Box(
         modifier = modifier
-            .height(48.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .height(52.dp)
+            .clip(RoundedCornerShape(10.dp))
             .background(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(cyanColor, blueColor, blendedColor, magentaColor, redColor),
+                    // Sample a moving 5-stop window of the ramp so the whole gradient
+                    // slowly drifts through blue -> mix -> red over time.
+                    colors = List(5) { i ->
+                        mixedRampColor((cyclePos + i * 0.08f) % 1f)
+                    }
                 ),
             )
             .clickable(enabled = enabled, onClick = onClick),
@@ -183,7 +261,12 @@ fun GradientButton(
 
 /**
  * Not private: reused by FileManagerScreen.kt for its own copy/extract/compress
- * progress overlay, so both screens share one gradient progress bar implementation.
+ * progress overlay, so both screens share one progress bar implementation.
+ *
+ * Bigger and more polished than before: thicker track, a soft drop shadow under the
+ * fill, a brighter core highlight running down the center of the fill, and an improved
+ * two-layer shimmer (a broad soft pass plus a tight bright pass) instead of one flat
+ * streak.
  */
 @Composable
 fun GlowingProgressBar(
@@ -200,60 +283,98 @@ fun GlowingProgressBar(
 
         // Track
         drawRoundRect(
-            color        = Color(0xFF1E1E1E),
+            color        = Color(0xFF141416),
             size         = Size(barW, barH),
             cornerRadius = CornerRadius(radius),
         )
+        // Subtle inner border so the track reads as a groove, not a flat rectangle.
+        drawRoundRect(
+            color        = Color(0xFF262629),
+            size         = Size(barW, barH),
+            cornerRadius = CornerRadius(radius),
+            style        = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f),
+        )
 
         if (fillW > 0f) {
-            val cyanColor = Color(0xFF00E5FF)
-            val blendedColor = Color(0xFF8000FF)
-            val redColor = Color(0xFFFF0055)
+            val stops = List(6) { i -> mixedRampColor(i / 5f) }
 
-            // Outer subtle glow layer matching the blue-to-red transition
+            // Soft drop shadow beneath the fill for depth.
+            drawRoundRect(
+                color        = Color.Black.copy(alpha = 0.35f),
+                topLeft      = Offset(0f, barH * 0.18f),
+                size         = Size(fillW, barH),
+                cornerRadius = CornerRadius(radius),
+            )
+
+            // Outer glow, tinted to match whatever's at the leading edge of the fill.
+            val edgeColor = mixedRampColor(progress)
             listOf(
-                4f to 0.15f,
-                2f to 0.30f,
+                6f to 0.12f,
+                3f to 0.22f,
             ).forEach { (expand, a) ->
                 drawRoundRect(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            cyanColor.copy(alpha = a),
-                            blendedColor.copy(alpha = a),
-                            redColor.copy(alpha = a)
-                        ),
-                        endX = fillW,
-                    ),
+                    color        = edgeColor.copy(alpha = a),
                     topLeft      = Offset(-expand / 2f, -expand / 2f),
                     size         = Size(fillW + expand, barH + expand),
                     cornerRadius = CornerRadius(radius + expand / 2f),
                 )
             }
 
-            // Main gradient fill (Blue -> Blended Purple -> Red)
+            // Main fill: the full blue -> white-mix -> red ramp, mapped across the
+            // filled width so far (not the whole bar), so early progress reads as
+            // deep blue and only reaches the red end once mostly complete.
             drawRoundRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(cyanColor, blendedColor, redColor),
-                    endX   = fillW,
-                ),
+                brush = Brush.horizontalGradient(colors = stops, endX = fillW),
                 size         = Size(fillW, barH),
                 cornerRadius = CornerRadius(radius),
             )
 
-            // Shimmer effect while loading
+            // Bright core highlight through the vertical center of the fill, giving it
+            // a rounded, glassy look rather than a flat color block.
+            val coreH = barH * 0.4f
+            drawRoundRect(
+                brush = Brush.horizontalGradient(colors = stops, endX = fillW),
+                topLeft      = Offset(0f, (barH - coreH) / 2f),
+                size         = Size(fillW, coreH),
+                cornerRadius = CornerRadius(coreH / 2f),
+                alpha        = 0.5f,
+            )
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.25f),
+                topLeft      = Offset(0f, barH * 0.12f),
+                size         = Size(fillW, barH * 0.22f),
+                cornerRadius = CornerRadius(barH * 0.11f),
+            )
+
+            // Shimmer: a broad soft pass plus a tighter bright pass riding on top of it,
+            // instead of one flat streak.
             if (!isComplete) {
-                val shimX    = shimmerPos * fillW
-                val shimHalf = barH * 4f
+                val shimX = shimmerPos * fillW
                 clipRect(right = fillW) {
+                    val broadHalf = barH * 6f
                     drawRoundRect(
                         brush = Brush.horizontalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.White.copy(alpha = 0.4f),
+                                Color.White.copy(alpha = 0.25f),
                                 Color.Transparent,
                             ),
-                            startX = shimX - shimHalf,
-                            endX   = shimX + shimHalf,
+                            startX = shimX - broadHalf,
+                            endX   = shimX + broadHalf,
+                        ),
+                        size         = Size(fillW, barH),
+                        cornerRadius = CornerRadius(radius),
+                    )
+                    val tightHalf = barH * 1.5f
+                    drawRoundRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.65f),
+                                Color.Transparent,
+                            ),
+                            startX = shimX - tightHalf,
+                            endX   = shimX + tightHalf,
                         ),
                         size         = Size(fillW, barH),
                         cornerRadius = CornerRadius(radius),
