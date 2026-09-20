@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.winlator.star.ui.screens.cyclingBlue
+import com.winlator.star.ui.screens.cyclingRed
 import org.json.JSONArray
 import java.io.File
 
@@ -144,18 +146,14 @@ fun GraphicsDriverSettingsDialog(
     var etc2 by remember { mutableStateOf(parsedConfig["etc2"]?.toBoolean() ?: false) }
     var astc by remember { mutableStateOf(parsedConfig["astc"]?.toBoolean() ?: false) }
     var astcBlockSize by remember { mutableStateOf(parsedConfig["astcBlockSize"] ?: "6x6") }
+    // ASTC block size is temporarily locked to 4x4 ("Coming soon" for the other sizes).
 
-    var astcStep by remember {
-        mutableStateOf(
-            when (astcBlockSize) {
-                "4x4" -> 1f
-                "5x5" -> 2f
-                "6x6" -> 3f
-                "8x8" -> 4f
-                "12x12" -> 5f
-                else -> 3f
-            }
-        )
+    // ETC1 / ETC2 / ASTC map to mutually exclusive BCN_TRANSCODE_TO_* env vars — only one
+    // can be active at a time, so picking one clears the other two.
+    fun selectBcnTranscodeTarget(target: String) {
+        etc1 = target == "etc1"
+        etc2 = target == "etc2"
+        astc = target == "astc"
     }
 
     AlertDialog(
@@ -231,7 +229,11 @@ fun GraphicsDriverSettingsDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { showIncompatibleDrivers = !showIncompatibleDrivers }
                 ) {
-                    Checkbox(checked = showIncompatibleDrivers, onCheckedChange = { showIncompatibleDrivers = it })
+                    Checkbox(
+                        checked = showIncompatibleDrivers,
+                        onCheckedChange = { showIncompatibleDrivers = it },
+                        colors = CheckboxDefaults.colors(checkedColor = cyclingBlue())
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Show incompatible drivers")
                 }
@@ -397,7 +399,11 @@ fun GraphicsDriverSettingsDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { syncEveryFrame = !syncEveryFrame }
                 ) {
-                    Checkbox(checked = syncEveryFrame, onCheckedChange = { syncEveryFrame = it })
+                    Checkbox(
+                        checked = syncEveryFrame,
+                        onCheckedChange = { syncEveryFrame = it },
+                        colors = CheckboxDefaults.colors(checkedColor = cyclingBlue())
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Sync Every Frame")
                 }
@@ -406,7 +412,11 @@ fun GraphicsDriverSettingsDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { disableKhrPresentWait = !disableKhrPresentWait }
                 ) {
-                    Checkbox(checked = disableKhrPresentWait, onCheckedChange = { disableKhrPresentWait = it })
+                    Checkbox(
+                        checked = disableKhrPresentWait,
+                        onCheckedChange = { disableKhrPresentWait = it },
+                        colors = CheckboxDefaults.colors(checkedColor = cyclingBlue())
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Disable KHR_present_wait")
                 }
@@ -415,37 +425,66 @@ fun GraphicsDriverSettingsDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { oneUiHyperOsFix = !oneUiHyperOsFix }
                 ) {
-                    Checkbox(checked = oneUiHyperOsFix, onCheckedChange = { oneUiHyperOsFix = it })
+                    Checkbox(
+                        checked = oneUiHyperOsFix,
+                        onCheckedChange = { oneUiHyperOsFix = it },
+                        colors = CheckboxDefaults.colors(checkedColor = cyclingBlue())
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("OneUI / HyperOS Fix")
                 }
 
                 Divider(modifier = Modifier.padding(vertical = 4.dp))
                 Text("Texture Compression Settings", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Only one BCn transcode target can be active at a time.",
+                    style = MaterialTheme.typography.bodySmall
+                )
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().clickable { etc1 = !etc1 }
+                    modifier = Modifier.fillMaxWidth().clickable { selectBcnTranscodeTarget("etc1") }
                 ) {
-                    Checkbox(checked = etc1, onCheckedChange = { etc1 = it })
+                    RadioButton(
+                        selected = etc1,
+                        onClick = { selectBcnTranscodeTarget("etc1") },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = cyclingBlue(),
+                            unselectedColor = cyclingBlue().copy(alpha = 0.5f)
+                        )
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("ETC1 (RGB)")
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().clickable { etc2 = !etc2 }
+                    modifier = Modifier.fillMaxWidth().clickable { selectBcnTranscodeTarget("etc2") }
                 ) {
-                    Checkbox(checked = etc2, onCheckedChange = { etc2 = it })
+                    RadioButton(
+                        selected = etc2,
+                        onClick = { selectBcnTranscodeTarget("etc2") },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = cyclingBlue(),
+                            unselectedColor = cyclingBlue().copy(alpha = 0.5f)
+                        )
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("ETC2 (RGB/RGBA)")
                 }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().clickable { astc = !astc }
+                    modifier = Modifier.fillMaxWidth().clickable { selectBcnTranscodeTarget("astc") }
                 ) {
-                    Checkbox(checked = astc, onCheckedChange = { astc = it })
+                    RadioButton(
+                        selected = astc,
+                        onClick = { selectBcnTranscodeTarget("astc") },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = cyclingRed(),
+                            unselectedColor = cyclingRed().copy(alpha = 0.5f)
+                        )
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("ASTC Support")
                 }
@@ -456,20 +495,33 @@ fun GraphicsDriverSettingsDialog(
                             .fillMaxWidth()
                             .padding(start = 32.dp, end = 8.dp)
                     ) {
-                        val currentLabel = when (astcStep.toInt()) {
-                            1 -> "4x4 (Max Quality)"
-                            2 -> "5x5 (High Quality)"
-                            3 -> "6x6 (Balanced)"
-                            4 -> "8x8 (High Compression)"
-                            5 -> "12x12 (Max Compression)"
-                            else -> "6x6"
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("ASTC Block Size: 4x4 (Max Quality)", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = cyclingRed().copy(alpha = 0.18f),
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Text(
+                                    "Coming soon",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = cyclingRed(),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
                         }
-                        Text("ASTC Block Size: $currentLabel", style = MaterialTheme.typography.bodyMedium)
+                        // Locked at 4x4 for now — other block sizes are temporarily disabled.
                         Slider(
-                            value = astcStep,
-                            onValueChange = { astcStep = it },
+                            value = 1f,
+                            onValueChange = {},
                             valueRange = 1f..5f,
-                            steps = 3
+                            steps = 3,
+                            enabled = false,
+                            colors = SliderDefaults.colors(
+                                disabledThumbColor = cyclingBlue(),
+                                disabledActiveTrackColor = cyclingBlue(),
+                                disabledInactiveTrackColor = cyclingBlue().copy(alpha = 0.3f)
+                            )
                         )
                     }
                 }
@@ -494,26 +546,20 @@ fun GraphicsDriverSettingsDialog(
                 parsedConfig["etc1"] = etc1.toString()
                 parsedConfig["etc2"] = etc2.toString()
                 parsedConfig["astc"] = astc.toString()
-                parsedConfig["astcBlockSize"] = when (astcStep.toInt()) {
-                    1 -> "4x4"
-                    2 -> "5x5"
-                    3 -> "6x6"
-                    4 -> "8x8"
-                    5 -> "12x12"
-                    else -> "6x6"
-                }
+                // Locked to 4x4 while other block sizes are "Coming soon" — see the slider above.
+                parsedConfig["astcBlockSize"] = "4x4"
 
                 parsedConfig["enabledExtensions"] = extensionStates.filter { it.value }.keys.joinToString(",")
 
                 val finalConfigString = GraphicsDriverConfigDialog.toGraphicsDriverConfig(parsedConfig)
                 onConfirm(finalConfigString)
             }) {
-                Text("OK")
+                Text("OK", color = cyclingBlue())
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Cancel", color = cyclingRed())
             }
         }
     )
