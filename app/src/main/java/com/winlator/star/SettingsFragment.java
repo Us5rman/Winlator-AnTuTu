@@ -422,6 +422,10 @@ public class SettingsFragment extends Fragment {
         applyFieldSetLabelStyle(xServerLabel, isDarkMode);
 
         // Advanced tab labels
+        TextView logsLabel = view.findViewById(R.id.TVXServer);
+        applyFieldSetLabelStyle(xServerLabel, isDarkMode);
+
+        // Advanced tab labels
         TextView logsLabel = view.findViewById(R.id.TVLogs);
         applyFieldSetLabelStyle(logsLabel, isDarkMode);
 
@@ -589,6 +593,16 @@ public class SettingsFragment extends Fragment {
             });
         };
 
+        Callback<String> onExportPreset = (String prefix) -> {
+            final String presetId = FEXCorePresetManager.getSpinnerSelectedId(sFEXCorePreset);
+            if (!presetId.startsWith(FEXCorePreset.CUSTOM)) {
+                AppUtils.showToast(context, "Cannot export this preset");
+                return;
+            }
+            getActivity().runOnUiThread(() ->  {
+                FEXCorePresetManager.exportPreset(context, presetId);
+            });
+        };
         Callback<String> onExportPreset = (String prefix) -> {
             final String presetId = FEXCorePresetManager.getSpinnerSelectedId(sFEXCorePreset);
             if (!presetId.startsWith(FEXCorePreset.CUSTOM)) {
@@ -790,8 +804,7 @@ public class SettingsFragment extends Fragment {
                         // Update the TextView with the absolute path or URI string if conversion fails
                         TextView tvShortcutExportPath = getView().findViewById(R.id.TVShortcutExportPath);
                         tvShortcutExportPath.setText(path != null ? path : uri.toString());
-
-
+                        break;
 
                     // Case for installing a SoundFont
                     case REQUEST_CODE_INSTALL_SOUNDFONT:
@@ -824,15 +837,29 @@ public class SettingsFragment extends Fragment {
                         } catch (FileNotFoundException e) {
                         }
                         break;
+
+                    case MainActivity.OPEN_FILE_REQUEST_CODE:
+                        // This request code is shared with the restore-backup file picker
+                        // (selectBackupFileForRestore() launches it via OPEN_FILE_REQUEST_CODE
+                        // directly, not one of this fragment's own REQUEST_CODE_* constants).
+                        // There was previously no case for it at all, so the picked file was
+                        // silently discarded and restoreAppData() was never called — that's
+                        // why "Restore Data" did nothing.
+                        if (isRestoreAction) {
+                            isRestoreAction = false;
+                            restoreAppData(uri);
+                        }
+                        break;
+
                         // Add future cases here for other request codes...
                     default:
                         break;
                 }
             }
         }
-    }
+	}
 
-	private void restoreAppData(Uri backupUri) {
+    private void restoreAppData(Uri backupUri) {
         if (getActivity() != null) {  // Ensure the activity is not null
             Intent intent = new Intent(getActivity(), RestoreActivity.class);
             intent.setData(backupUri);
