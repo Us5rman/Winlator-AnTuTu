@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
 import android.widget.Toast
+import android.content.res.Configuration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -17,8 +18,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.graphicsLayer
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -146,6 +153,8 @@ import java.io.FileReader
 import java.io.IOException
 import java.lang.reflect.Field
 
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
     val shortcuts by vm.shortcuts.collectAsState(initial = emptyList())
@@ -153,11 +162,14 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
     val isGridView by vm.isGridView.collectAsState()
     val context = LocalContext.current
     val activity = context as Activity
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     var confirmRemove by remember { mutableStateOf<Shortcut?>(null) }
     var cloneTarget by remember { mutableStateOf<Shortcut?>(null) }
     var settingsShortcut by remember { mutableStateOf<Shortcut?>(null) }
     var propertiesShortcut by remember { mutableStateOf<Shortcut?>(null) }
+    var editInfoShortcut by remember { mutableStateOf<Shortcut?>(null) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showImportContainerPicker by remember { mutableStateOf(false) }
     var pendingImportContainerIndex by remember { mutableStateOf(-1) }
@@ -187,14 +199,18 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
     // first and runs first (clears); we enqueue second and run after (sets). A
     // SideEffect would run synchronously during commit, getting steamrolled by the
     // parent's clear when it fires post-commit.
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isLandscape) {
         topBarActions.value = {
-            IconButton(onClick = { vm.setGridView(!isGridView) }) {
-                Icon(
-                    imageVector = if (isGridView) Icons.Filled.ViewList else Icons.Filled.GridView,
-                    contentDescription = if (isGridView) "List view" else "Grid view",
-                    tint = androidx.compose.ui.graphics.Color.White,
-                )
+            // Grid/list toggle only makes sense for the portrait grid/list layout —
+            // the landscape carousel is a single layout, so it's hidden there.
+            if (!isLandscape) {
+                IconButton(onClick = { vm.setGridView(!isGridView) }) {
+                    Icon(
+                        imageVector = if (isGridView) Icons.Filled.ViewList else Icons.Filled.GridView,
+                        contentDescription = if (isGridView) "List view" else "Grid view",
+                        tint = androidx.compose.ui.graphics.Color.White,
+                    )
+                }
             }
             Box {
                 IconButton(onClick = { showSortMenu = true }) {
@@ -224,13 +240,32 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
             }
         }
     }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            // Subtle animated cycling-color wash behind everything — our signature
+            // blue/red-cycling look, but at very low alpha so it reads as ambient motion
+            // rather than a loud background. In landscape this sits underneath the
+            // carousel's full-bleed banner backdrop, so it's mainly visible in portrait.
+            CyclingColorWash(modifier = Modifier.fillMaxSize())
+
             if (shortcuts.isEmpty()) {
                 Text(
                     text = "No shortcuts yet.",
                     color = OnSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center),
+                )
+            } else if (isLandscape) {
+                ShortcutCarousel(
+                    shortcuts = shortcuts,
+                    onRun = { runShortcut(activity, it) },
+                    onSettings = { settingsShortcut = it },
+                    onRemove = { confirmRemove = it },
+                    onClone = { cloneTarget = it },
+                    onAddToHome = { addToHomeScreen(context, it) },
+                    onExport = { exportShortcut(context, it) },
+                    onProperties = { propertiesShortcut = it },
+                    onEditInfo = { editInfoShortcut = it },
                 )
             } else {
                 AnimatedContent(targetState = isGridView, label = "layout") { grid ->
@@ -252,6 +287,7 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
                                     onAddToHome = { addToHomeScreen(context, shortcut) },
                                     onExport = { exportShortcut(context, shortcut) },
                                     onProperties = { propertiesShortcut = shortcut },
+                                    onEditInfo = { editInfoShortcut = shortcut },
                                 )
                             }
                         }
@@ -267,6 +303,7 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
                                     onAddToHome = { addToHomeScreen(context, shortcut) },
                                     onExport = { exportShortcut(context, shortcut) },
                                     onProperties = { propertiesShortcut = shortcut },
+                                    onEditInfo = { editInfoShortcut = shortcut },
                                 )
                                 Divider(color = DividerColor)
                             }
@@ -281,7 +318,7 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
         ) {
             Icon(Icons.Filled.Add, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add Shortcut")
+            Text("Import Game")
         }
     }
 
@@ -367,9 +404,9 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
                         if (ok) "Shortcut removed." else "Failed to remove shortcut.",
                         Toast.LENGTH_SHORT,
                     ).show()
-                }) { Text("Remove") }
+                }) { Text("Remove", color = cyclingRed()) }
             },
-            dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmRemove = null }) { Text("Cancel", color = cyclingBlue()) } },
         )
     }
 
@@ -440,12 +477,464 @@ fun ShortcutsScreen(vm: ShortcutsViewModel = viewModel()) {
         )
     }
 
+    // Edit Info dialog — name, banner, and cover art editing.
+    editInfoShortcut?.let { s ->
+        EditInfoDialog(
+            shortcut = s,
+            onDismiss = { editInfoShortcut = null },
+            onSaved = { editInfoShortcut = null; vm.refresh() },
+        )
+    }
+
     // Compose shortcut settings dialog
     settingsShortcut?.let { s ->
         ShortcutSettingsDialogScreen(
             shortcut = s,
             onDismiss = { settingsShortcut = null; vm.refresh() }
         )
+    }
+}
+
+/**
+ * A faint, continuously-animated blue/red wash behind the whole screen — the same
+ * cycling colors used everywhere else in the app, just at very low alpha so it reads
+ * as ambient motion rather than a visible background.
+ */
+@Composable
+private fun CyclingColorWash(modifier: Modifier = Modifier) {
+    val blue = cyclingBlue()
+    val red = cyclingRed()
+    Box(
+        modifier = modifier.background(
+            Brush.linearGradient(colors = listOf(blue.copy(alpha = 0.05f), red.copy(alpha = 0.05f)))
+        )
+    )
+}
+
+/**
+ * Horizontal-only carousel (landscape mode): a full-bleed banner backdrop for whichever
+ * game is currently centered, a row of cover-art cards where the centered one scales up,
+ * and the focused game's name + View Details / options button underneath — matching a
+ * console-style game library UI.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ShortcutCarousel(
+    shortcuts: List<Shortcut>,
+    onRun: (Shortcut) -> Unit,
+    onSettings: (Shortcut) -> Unit,
+    onRemove: (Shortcut) -> Unit,
+    onClone: (Shortcut) -> Unit,
+    onAddToHome: (Shortcut) -> Unit,
+    onExport: (Shortcut) -> Unit,
+    onProperties: (Shortcut) -> Unit,
+    onEditInfo: (Shortcut) -> Unit,
+) {
+    val pagerState = rememberPagerState(pageCount = { shortcuts.size })
+    val focused = shortcuts.getOrNull(pagerState.currentPage)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Full-bleed banner backdrop, crossfading as the focused game changes.
+        AnimatedContent(targetState = focused, label = "banner-backdrop") { s ->
+            val banner = s?.bannerArt
+            if (banner != null) {
+                Image(
+                    bitmap = banner.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize())
+            }
+        }
+        // Dark scrim so the carousel and text stay readable over any banner.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(alpha = 0.30f), Color.Black.copy(alpha = 0.88f))
+                    )
+                )
+        )
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            Spacer(Modifier.weight(1f))
+
+            HorizontalPager(
+                state = pagerState,
+                pageSize = PageSize.Fixed(140.dp),
+                contentPadding = PaddingValues(horizontal = 48.dp),
+                modifier = Modifier.fillMaxWidth().height(220.dp),
+            ) { page ->
+                val shortcut = shortcuts[page]
+                val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                val distance = kotlin.math.abs(pageOffset).coerceIn(0f, 1f)
+                val scale = 0.75f + (1f - 0.75f) * (1f - distance)
+                ShortcutCoverCard(
+                    shortcut = shortcut,
+                    onClick = { onRun(shortcut) },
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                        },
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            focused?.let { s ->
+                Text(
+                    text = s.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 32.dp).fillMaxWidth(),
+                )
+                Spacer(Modifier.height(14.dp))
+                Row(
+                    modifier = Modifier.padding(horizontal = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        onClick = { onRun(s) },
+                        shape = RoundedCornerShape(50),
+                        color = Color.White.copy(alpha = 0.16f),
+                    ) {
+                        Text(
+                            "View Details",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 22.dp, vertical = 11.dp),
+                        )
+                    }
+                    var menuExpanded by remember(s.file.path) { mutableStateOf(false) }
+                    Box {
+                        Surface(
+                            onClick = { menuExpanded = true },
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.16f),
+                        ) {
+                            Icon(
+                                Icons.Filled.MoreVert,
+                                contentDescription = "Options",
+                                tint = Color.White,
+                                modifier = Modifier.padding(11.dp),
+                            )
+                        }
+                        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                            ShortcutMenuItems(
+                                onSettings = { menuExpanded = false; onSettings(s) },
+                                onAddToHome = { menuExpanded = false; onAddToHome(s) },
+                                onRemove = { menuExpanded = false; onRemove(s) },
+                                onEditInfo = { menuExpanded = false; onEditInfo(s) },
+                                onClone = { menuExpanded = false; onClone(s) },
+                                onExport = { menuExpanded = false; onExport(s) },
+                                onProperties = { menuExpanded = false; onProperties(s) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(28.dp))
+        }
+    }
+}
+
+@Composable
+private fun ShortcutCoverCard(shortcut: Shortcut, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .aspectRatio(2f / 3f)
+            .clip(RoundedCornerShape(10.dp))
+            .background(SurfaceColor)
+            .clickable(onClick = onClick),
+    ) {
+        val cover = shortcut.coverArt ?: shortcut.icon
+        if (cover != null) {
+            Image(
+                bitmap = cover.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Filled.OpenInNew,
+                contentDescription = null,
+                tint = cyclingBlue(),
+                modifier = Modifier.fillMaxSize().padding(20.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The shared set of per-shortcut menu actions, in the order shown in the console-style
+ * reference UI (PC Game Settings / Add to Desktop / Remove Game / Edit Info / Keys &
+ * Layout), plus Clone/Export/Properties kept below a divider since those are existing
+ * working features not present in the reference screenshot but not something to drop.
+ *
+ * NOTE: "Keys & Layout" currently opens the same PC Game Settings dialog as a
+ * placeholder — there's no dedicated per-shortcut controls-binding screen yet to route
+ * it to. Wire it to a specific tab once that exists.
+ */
+@Composable
+private fun ShortcutMenuItems(
+    onSettings: () -> Unit,
+    onAddToHome: () -> Unit,
+    onRemove: () -> Unit,
+    onEditInfo: () -> Unit,
+    onClone: () -> Unit,
+    onExport: () -> Unit,
+    onProperties: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text("PC Game Settings") },
+        leadingIcon = { Icon(Icons.Filled.Settings, null) },
+        onClick = onSettings,
+    )
+    DropdownMenuItem(
+        text = { Text("Add to Desktop") },
+        leadingIcon = { Icon(Icons.Filled.AddToHomeScreen, null) },
+        onClick = onAddToHome,
+    )
+    DropdownMenuItem(
+        text = { Text("Remove Game") },
+        leadingIcon = { Icon(Icons.Filled.Delete, null) },
+        onClick = onRemove,
+    )
+    DropdownMenuItem(
+        text = { Text("Edit Info") },
+        leadingIcon = { Icon(Icons.Filled.Info, null) },
+        onClick = onEditInfo,
+    )
+    DropdownMenuItem(
+        text = { Text("Keys & Layout") },
+        leadingIcon = { Icon(Icons.Filled.Settings, null) },
+        onClick = onSettings,
+    )
+    Divider(color = DividerColor)
+    DropdownMenuItem(
+        text = { Text("Clone to container") },
+        leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
+        onClick = onClone,
+    )
+    DropdownMenuItem(
+        text = { Text("Export") },
+        leadingIcon = { Icon(Icons.Filled.Upload, null) },
+        onClick = onExport,
+    )
+    DropdownMenuItem(
+        text = { Text("Properties") },
+        leadingIcon = { Icon(Icons.Filled.Info, null) },
+        onClick = onProperties,
+    )
+}
+
+/**
+ * Name, banner, and cover editor — matches the "Edit Info" reference screenshot: a name
+ * field, a banner thumbnail and cover thumbnail side by side (each clickable to pick a
+ * new image, each with a clear button and a Restore link), then Cancel / Confirm.
+ */
+@Composable
+private fun EditInfoDialog(shortcut: Shortcut, onDismiss: () -> Unit, onSaved: () -> Unit) {
+    val context = LocalContext.current
+    var name by remember { mutableStateOf(shortcut.name) }
+
+    var pendingBannerUri by remember { mutableStateOf<Uri?>(null) }
+    var bannerCleared by remember { mutableStateOf(false) }
+    var pendingCoverUri by remember { mutableStateOf<Uri?>(null) }
+    var coverCleared by remember { mutableStateOf(false) }
+
+    val bannerPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            pendingBannerUri = uri
+            bannerCleared = false
+        }
+    }
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            pendingCoverUri = uri
+            coverCleared = false
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text("Edit Info", modifier = Modifier.weight(1f))
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close")
+                }
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (name.isNotEmpty()) {
+                            IconButton(onClick = { name = "" }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Clear name")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    EditableArtThumbnail(
+                        label = "Banner",
+                        aspectRatio = 16f / 9f,
+                        currentBitmap = shortcut.bannerArt,
+                        pendingUri = pendingBannerUri,
+                        cleared = bannerCleared,
+                        onPick = { bannerPicker.launch("image/*") },
+                        onClear = { pendingBannerUri = null; bannerCleared = true },
+                        onRestore = { pendingBannerUri = null; bannerCleared = true },
+                        modifier = Modifier.weight(1.3f),
+                    )
+                    EditableArtThumbnail(
+                        label = "Cover",
+                        aspectRatio = 2f / 3f,
+                        currentBitmap = shortcut.coverArt ?: shortcut.icon,
+                        pendingUri = pendingCoverUri,
+                        cleared = coverCleared,
+                        onPick = { coverPicker.launch("image/*") },
+                        onClear = { pendingCoverUri = null; coverCleared = true },
+                        onRestore = { pendingCoverUri = null; coverCleared = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val trimmed = name.trim()
+                if (trimmed.isNotEmpty() && trimmed != shortcut.name) {
+                    renameShortcut(shortcut, trimmed)
+                }
+                when {
+                    pendingBannerUri != null -> decodeBitmapFromUri(context, pendingBannerUri!!)?.let {
+                        shortcut.saveCustomBannerArt(it)
+                    }
+                    bannerCleared -> shortcut.removeCustomBannerArt()
+                }
+                when {
+                    pendingCoverUri != null -> decodeBitmapFromUri(context, pendingCoverUri!!)?.let {
+                        shortcut.saveCustomCoverArt(it)
+                    }
+                    coverCleared -> shortcut.removeCustomCoverArt()
+                }
+                onSaved()
+            }) { Text("Confirm", color = cyclingBlue()) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = cyclingRed()) }
+        },
+    )
+}
+
+@Composable
+private fun EditableArtThumbnail(
+    label: String,
+    aspectRatio: Float,
+    currentBitmap: Bitmap?,
+    pendingUri: Uri?,
+    cleared: Boolean,
+    onPick: () -> Unit,
+    onClear: () -> Unit,
+    onRestore: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val showingSomething = pendingUri != null || (currentBitmap != null && !cleared)
+    Column(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(aspectRatio)
+                .clip(RoundedCornerShape(8.dp))
+                .background(SurfaceColor)
+                .clickable(onClick = onPick),
+        ) {
+            when {
+                pendingUri != null -> AsyncUriImage(uri = pendingUri, modifier = Modifier.fillMaxSize())
+                currentBitmap != null && !cleared -> Image(
+                    bitmap = currentBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                else -> Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Add $label",
+                    tint = OnSurfaceVariant,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+            if (showingSomething) {
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(22.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                ) {
+                    Icon(
+                        Icons.Filled.Close,
+                        contentDescription = "Remove $label",
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "\u21bb Restore",
+            color = cyclingBlue(),
+            fontSize = 12.sp,
+            modifier = Modifier.clickable(onClick = onRestore),
+        )
+    }
+}
+
+/** Decodes a picked image Uri off the main thread for live preview inside EditInfoDialog. */
+@Composable
+private fun AsyncUriImage(uri: Uri, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var bmp by remember(uri) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(uri) {
+        bmp = withContext(Dispatchers.IO) { decodeBitmapFromUri(context, uri) }
+    }
+    bmp?.let {
+        Image(
+            bitmap = it.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
+    }
+}
+
+private fun decodeBitmapFromUri(context: Context, uri: Uri): Bitmap? {
+    return try {
+        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+    } catch (e: Exception) {
+        null
     }
 }
 
@@ -459,6 +948,7 @@ private fun ShortcutItem(
     onAddToHome: () -> Unit,
     onExport: () -> Unit,
     onProperties: () -> Unit,
+    onEditInfo: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -470,17 +960,19 @@ private fun ShortcutItem(
             .clickable(onClick = onRun)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
-        if (shortcut.icon != null) {
+        val cover = shortcut.coverArt ?: shortcut.icon
+        if (cover != null) {
             Image(
-                bitmap = shortcut.icon.asImageBitmap(),
+                bitmap = cover.asImageBitmap(),
                 contentDescription = null,
-                modifier = Modifier.size(40.dp),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(6.dp)),
             )
         } else {
             Icon(
                 imageVector = Icons.Filled.OpenInNew,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = cyclingBlue(),
                 modifier = Modifier.size(40.dp),
             )
         }
@@ -533,35 +1025,14 @@ private fun ShortcutItem(
                 Icon(Icons.Filled.MoreVert, contentDescription = "Options", tint = OnSurfaceVariant)
             }
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                DropdownMenuItem(
-                    text = { Text("Settings") },
-                    leadingIcon = { Icon(Icons.Filled.Settings, null) },
-                    onClick = { menuExpanded = false; onSettings() },
-                )
-                DropdownMenuItem(
-                    text = { Text("Remove") },
-                    leadingIcon = { Icon(Icons.Filled.Delete, null) },
-                    onClick = { menuExpanded = false; onRemove() },
-                )
-                DropdownMenuItem(
-                    text = { Text("Clone to container") },
-                    leadingIcon = { Icon(Icons.Filled.ContentCopy, null) },
-                    onClick = { menuExpanded = false; onClone() },
-                )
-                DropdownMenuItem(
-                    text = { Text("Add to home screen") },
-                    leadingIcon = { Icon(Icons.Filled.AddToHomeScreen, null) },
-                    onClick = { menuExpanded = false; onAddToHome() },
-                )
-                DropdownMenuItem(
-                    text = { Text("Export") },
-                    leadingIcon = { Icon(Icons.Filled.Upload, null) },
-                    onClick = { menuExpanded = false; onExport() },
-                )
-                DropdownMenuItem(
-                    text = { Text("Properties") },
-                    leadingIcon = { Icon(Icons.Filled.Info, null) },
-                    onClick = { menuExpanded = false; onProperties() },
+                ShortcutMenuItems(
+                    onSettings = { menuExpanded = false; onSettings() },
+                    onAddToHome = { menuExpanded = false; onAddToHome() },
+                    onRemove = { menuExpanded = false; onRemove() },
+                    onEditInfo = { menuExpanded = false; onEditInfo() },
+                    onClone = { menuExpanded = false; onClone() },
+                    onExport = { menuExpanded = false; onExport() },
+                    onProperties = { menuExpanded = false; onProperties() },
                 )
             }
         }
@@ -579,6 +1050,7 @@ private fun ShortcutGridItem(
     onAddToHome: () -> Unit,
     onExport: () -> Unit,
     onProperties: () -> Unit,
+    onEditInfo: () -> Unit,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -590,9 +1062,10 @@ private fun ShortcutGridItem(
             .combinedClickable(onClick = onRun, onLongClick = { menuExpanded = true }),
     ) {
         // Cover image fills the entire tile
-        if (shortcut.icon != null) {
+        val cover = shortcut.coverArt ?: shortcut.icon
+        if (cover != null) {
             Image(
-                bitmap = shortcut.icon.asImageBitmap(),
+                bitmap = cover.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -601,7 +1074,7 @@ private fun ShortcutGridItem(
             Icon(
                 imageVector = Icons.Filled.OpenInNew,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = cyclingBlue(),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(24.dp),
@@ -643,12 +1116,15 @@ private fun ShortcutGridItem(
 
         // Long-press context menu
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(text = { Text("Settings") }, leadingIcon = { Icon(Icons.Filled.Settings, null) }, onClick = { menuExpanded = false; onSettings() })
-            DropdownMenuItem(text = { Text("Remove") }, leadingIcon = { Icon(Icons.Filled.Delete, null) }, onClick = { menuExpanded = false; onRemove() })
-            DropdownMenuItem(text = { Text("Clone to container") }, leadingIcon = { Icon(Icons.Filled.ContentCopy, null) }, onClick = { menuExpanded = false; onClone() })
-            DropdownMenuItem(text = { Text("Add to home screen") }, leadingIcon = { Icon(Icons.Filled.AddToHomeScreen, null) }, onClick = { menuExpanded = false; onAddToHome() })
-            DropdownMenuItem(text = { Text("Export") }, leadingIcon = { Icon(Icons.Filled.Upload, null) }, onClick = { menuExpanded = false; onExport() })
-            DropdownMenuItem(text = { Text("Properties") }, leadingIcon = { Icon(Icons.Filled.Info, null) }, onClick = { menuExpanded = false; onProperties() })
+            ShortcutMenuItems(
+                onSettings = { menuExpanded = false; onSettings() },
+                onAddToHome = { menuExpanded = false; onAddToHome() },
+                onRemove = { menuExpanded = false; onRemove() },
+                onEditInfo = { menuExpanded = false; onEditInfo() },
+                onClone = { menuExpanded = false; onClone() },
+                onExport = { menuExpanded = false; onExport() },
+                onProperties = { menuExpanded = false; onProperties() },
+            )
         }
     }
 }
@@ -694,7 +1170,7 @@ private fun ShortcutSettingsDialogScreen(shortcut: Shortcut, onDismiss: () -> Un
     var graphicsDriverConfig by remember {
         mutableStateOf(shortcut.getExtra("graphicsDriverConfig", shortcut.container.getGraphicsDriverConfig()))
     }
-
+    
     // DX wrapper
     val dxWrapperEntries = remember { res.getStringArray(R.array.dxwrapper_entries).toList() }
     var selectedDxWrapper by remember {
@@ -1057,7 +1533,7 @@ private fun ShortcutSettingsDialogScreen(shortcut: Shortcut, onDismiss: () -> Un
                         Text("${stringResource(R.string.graphics_driver)}: ${GraphicsDriverConfigDialog.getVersion(graphicsDriverConfig)}")
                     }
 
-                    // DX Wrapper
+                                        // DX Wrapper
                     LabeledDropdown(
                         label = stringResource(R.string.dxwrapper),
                         options = dxWrapperEntries,
@@ -1382,6 +1858,7 @@ private fun ScEnvVarsTab(shortcut: Shortcut, envVarsViewRef: MutableState<EnvVar
         )
     }
 }
+
 
 @Composable
 private fun ScAdvancedTab(
