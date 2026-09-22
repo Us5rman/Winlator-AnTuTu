@@ -9,10 +9,15 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.view.View
+import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -117,9 +122,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * True edge-to-edge immersive mode: hides both the status bar and navigation bar,
+     * letting the user swipe from an edge to reveal them temporarily (they auto-hide
+     * again). This is what removes the navy status-bar strip seen behind the app.
+     */
+    private fun enableImmersiveMode() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setCompatVectorFromResourcesEnabled(true)
         super.onCreate(savedInstanceState)
+
+        enableImmersiveMode()
 
         PACKAGE_NAME = applicationContext.packageName
         AppThemeState.init(this)
@@ -219,6 +239,16 @@ class MainActivity : AppCompatActivity() {
                     PreloaderOverlay()
                 }
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // Re-hide system bars whenever the window regains focus (e.g. returning from
+        // another app, or dismissing a system dialog) — without this, a transient
+        // reveal via swipe can end up "stuck" showing after refocus.
+        if (hasFocus) {
+            enableImmersiveMode()
         }
     }
 
@@ -416,13 +446,13 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     modifier = androidx.compose.ui.Modifier.size(72.dp)
                 )
                 Text(
-                    text = "Star Bionic",
+                    text = "Winlator AnTuTu",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "v1.3-vegas",
+                    text = "0",
                     fontSize = 13.sp,
                     color = com.winlator.star.ui.theme.OnSurfaceVariant
                 )
