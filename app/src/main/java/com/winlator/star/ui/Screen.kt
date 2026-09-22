@@ -2,7 +2,7 @@ package com.winlator.star.ui
 
 sealed class Screen(val route: String, val label: String, val iconName: String) {
     object Containers    : Screen("containers",     "Containers",             "folder")
-    object Shortcuts     : Screen("shortcuts",      "Shortcuts",              "shortcut")
+    object Shortcuts     : Screen("shortcuts",      "Library",                "shortcut")
     object Contents      : Screen("contents",       "Contents",               "inventory_2")
     object InputControls : Screen("input_controls", "Input Controls",         "sports_esports")
     object AdrenoTools   : Screen("adreno_tools",   "Adrenotools GPU Drivers","memory")
